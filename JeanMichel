@@ -2,8 +2,6 @@
 
 import tkinter as tk
 from functools import partial
-import tkinter as tk
-from functools import partial
 try:
     from PIL import Image, ImageTk
     HAS_PIL = True
@@ -46,30 +44,38 @@ root.geometry("600x400")
 root.configure(bg='black')
 root.protocol("WM_DELETE_WINDOW", on_closing)  # Intercepte la croix
 
-# Frame pour l'image en haut à gauche
+# Frame pour l'image dans le coin
 image_frame = tk.Frame(root, bg='black')
-image_frame.pack(anchor='nw', padx=20, pady=20)
+image_frame.place(x=10, y=10)  # Position fixe dans le coin
 
 # Chargement et affichage de l'image
 if HAS_PIL:
     try:
-        image = Image.open("images/votre_image.png")
-        image = image.resize((100, 100))
+        # Charger l'image depuis le dossier images
+        image = Image.open("images/corner_image.png")
+        # Redimensionner l'image (ajustez la taille selon vos besoins)
+        image = image.resize((80, 80), Image.Resampling.LANCZOS)
         photo = ImageTk.PhotoImage(image)
+        
+        # Créer le label avec l'image
         image_label = tk.Label(
             image_frame,
             image=photo,
-            bg='black'
+            bg='black',
+            bd=0  # Pas de bordure
         )
-        image_label.image = photo
+        image_label.image = photo  # Garder une référence
         image_label.pack()
-    except:
+        
+    except Exception as e:
+        print(f"Erreur de chargement de l'image: {e}")
+        # Placeholder en cas d'erreur
         placeholder = tk.Label(
             image_frame,
-            text="[Image placeholder]",
+            text="[×]",  # Symbole simple
             bg='black',
             fg='#00ff00',
-            font=('Courier', 10)
+            font=('Courier', 14)
         )
         placeholder.pack()
 else:
@@ -89,3 +95,51 @@ text_label = tk.Label(
     font=('Courier', 12)
 )
 text_label.pack(fill="both", expand=True)
+
+# Frame pour les boutons
+btn_frame = tk.Frame(root, bg='black')
+btn_frame.pack(pady=8)
+
+def show(node_id):
+    node = STORY[node_id]
+    text_var.set(node["text"])
+    for w in btn_frame.winfo_children():
+        w.destroy()
+    if node["choices"]:
+        for label, next_id in node["choices"]:
+            btn = tk.Button(
+                btn_frame,
+                text=f"> {label}",
+                width=30,
+                command=partial(show, next_id),
+                bg='black',
+                fg='#00ff00',
+                activebackground='#003300',
+                activeforeground='#00ff00',
+                font=('Courier', 10),
+                relief='flat',
+                borderwidth=0,
+                cursor='hand2'
+            )
+            btn.pack(pady=2)
+    else:
+        tk.Button(
+            btn_frame,
+            text="> Quitter",
+            width=30,
+            command=root.destroy,
+            bg='black',
+            fg='#00ff00',
+            activebackground='#003300',
+            activeforeground='#00ff00',
+            font=('Courier', 10),
+            relief='flat',
+            borderwidth=0,
+            cursor='hand2'
+        ).pack(pady=4)
+
+# Démarrer avec la première scène
+show("start")
+
+# Lancer la boucle principale
+root.mainloop()
