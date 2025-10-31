@@ -2,62 +2,47 @@
 # chemin home utilisé : /home/frxjoan
 import tkinter as tk
 from functools import partial
+from PIL import Image, ImageTk
 
 STORY = {
-    "start": {
-        "text": "Tu te réveilles dans une pièce étrange. Que fais-tu ?",
-        "choices": [("Explorer", "explore"), ("Attendre", "wait")],
-    },
-    "explore": {
-        "text": "Tu trouves une porte et une fenêtre.",
-        "choices": [("Ouvrir la porte", "door"), ("Regarder par la fenêtre", "window")],
-    },
-    "wait": {
-        "text": "Rien ne se passe. Le temps passe.",
-        "choices": [("Se lever", "explore"), ("S'endormir", "end_sleep")],
-    },
-    "door": {
-        "text": "La porte est verrouillée.",
-        "choices": [("Forcer la porte", "end_force"), ("Reculer", "start")],
-    },
-    "window": {
-        "text": "Par la fenêtre, tu vois un jardin.",
-        "choices": [("Grimper", "end_out"), ("Reculer", "start")],
-    },
-    "end_sleep": {"text": "Tu t'endors et te réveilles ailleurs. Fin.", "choices": []},
-    "end_force": {"text": "Tu blesses ta main. Fin.", "choices": []},
-    "end_out": {"text": "Tu sors dans le jardin et trouves la liberté. Fin.", "choices": []},
+    # ...existing code...
 }
 
 root = tk.Tk()
-root.title("Mini jeu — JeanMichel")
-root.geometry("480x260")
-text_var = tk.StringVar()
+root.title("Terminal - JeanMichel")
+root.geometry("600x400")
+root.configure(bg='black')
 
+# Frame pour l'image en haut à gauche
+image_frame = tk.Frame(root, bg='black')
+image_frame.pack(anchor='nw', padx=20, pady=20)
+
+# Chargement et affichage de l'image
+try:
+    image = Image.open("images/votre_image.png")  # Remplacer par votre image
+    image = image.resize((100, 100))  # Ajuster la taille selon besoin
+    photo = ImageTk.PhotoImage(image)
+    image_label = tk.Label(
+        image_frame,
+        image=photo,
+        bg='black'
+    )
+    image_label.image = photo  # Garder une référence
+    image_label.pack()
+except:
+    print("Erreur: Image non trouvée")
+
+# Style terminal (texte)
+text_var = tk.StringVar()
 text_label = tk.Label(
-    root, textvariable=text_var, wraplength=440, justify="left", padx=10, pady=10
+    root, 
+    textvariable=text_var, 
+    wraplength=540,
+    justify="left",
+    padx=20,
+    pady=20,
+    bg='black',
+    fg='#00ff00',
+    font=('Courier', 12)
 )
 text_label.pack(fill="both", expand=True)
-
-btn_frame = tk.Frame(root)
-btn_frame.pack(pady=8)
-
-
-def show(node_id):
-    node = STORY[node_id]
-    text_var.set(node["text"])
-    for w in btn_frame.winfo_children():
-        w.destroy()
-    if node["choices"]:
-        for label, next_id in node["choices"]:
-            tk.Button(
-                btn_frame, text=label, width=24, command=partial(show, next_id)
-            ).pack(pady=2)
-    else:
-        tk.Button(btn_frame, text="Quitter", width=24, command=root.destroy).pack(
-            pady=4
-        )
-
-
-show("start")
-root.mainloop()
