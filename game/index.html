@@ -18,10 +18,21 @@
     <div id="hud">
       <div class="panel">
         <h1>Prototype FPS — Couloir</h1>
-        <p>Cliquer pour regarder. ZQSD/Flèches pour avancer. Échap pour libérer le curseur.</p>
+  <p>Cliquer pour regarder. Contrôles: Z Q S D (ou Flèches). Échap pour libérer le curseur.</p>
         <p class="muted">Style PS2 simulé: rendu basse résolution + fog.</p>
         <a href="../jeanmichel.html" class="back">Retour au site</a>
         <button id="ambToggle" class="btn">Ambiance: OFF</button>
+      </div>
+      <div id="settings" class="panel right">
+        <div class="row"><label>Vitesse <input id="uiSpeed" type="range" min="1" max="6" step="0.1" value="2.65"></label></div>
+        <div class="row"><label>FOV <input id="uiFov" type="range" min="60" max="100" step="1" value="75"></label></div>
+        <div class="row"><label>Fog <input id="uiFog" type="range" min="0" max="0.05" step="0.001" value="0.012"></label></div>
+        <div class="row"><label>Lumière amb. <input id="uiAmb" type="range" min="0" max="1.2" step="0.05" value="0.7"></label></div>
+        <hr>
+        <div class="row"><label><input id="uiXhVis" type="checkbox" checked> Réticule</label></div>
+        <div class="row"><label>Couleur <input id="uiXhColor" type="color" value="#ffffff"></label></div>
+        <div class="row"><label>Taille <input id="uiXhSize" type="range" min="8" max="24" step="1" value="14"></label></div>
+        <button id="resetPos" class="btn">Revenir au début</button>
       </div>
       <div id="prompt" class="prompt" hidden></div>
       <div id="msg" class="msg" hidden></div>

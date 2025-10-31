@@ -10,6 +10,15 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   const fightInfo = document.getElementById('fightInfo');
   const fightExit = document.getElementById('fightExit');
   const ambToggle = document.getElementById('ambToggle');
+  // Settings UI
+  const uiSpeed = document.getElementById('uiSpeed');
+  const uiFov = document.getElementById('uiFov');
+  const uiFog = document.getElementById('uiFog');
+  const uiAmb = document.getElementById('uiAmb');
+  const uiXhVis = document.getElementById('uiXhVis');
+  const uiXhColor = document.getElementById('uiXhColor');
+  const uiXhSize = document.getElementById('uiXhSize');
+  const resetPos = document.getElementById('resetPos');
 
   // Renderer in low resolution (PS2-like upscale)
   const DPRScale = 0.6; // 0.5–0.7 looks good
@@ -21,8 +30,8 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
 
   // Scene & camera
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050507);
-  scene.fog = new THREE.FogExp2(0x06070a, 0.012); // lighter fog for visibility
+  scene.background = new THREE.Color(0x070709);
+  scene.fog = new THREE.FogExp2(0x0b0c10, 0.008); // lighter fog for more visibility
 
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 1.6, 0); // eye height
@@ -31,7 +40,7 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   const controls = new PointerLockControls(camera, renderer.domElement);
   let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
   let velocity = new THREE.Vector3();
-  const speed = 2.65; // m/s
+  let speed = 2.65; // m/s (UI-controlled)
 
   renderer.domElement.addEventListener('click', ()=>{
     controls.lock();
@@ -75,6 +84,7 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   const wallGeo = new THREE.BoxGeometry(0.2, height, length);
   const floorGeo = new THREE.PlaneGeometry(width, length);
 
+  // Build corridor with simple door frames every 5 segments
   for(let i=0;i<segments;i++){
     const z = -i*length;
     // Left wall
@@ -88,23 +98,34 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
 
     // Light every few segments (with slight flicker later)
     if(i % 3 === 0){
-      const lamp = new THREE.PointLight(0x8890a8, 2.2, 18, 1.5);
+      const lamp = new THREE.PointLight(0x9aa6c8, 2.8, 22, 1.5);
       lamp.position.set(0, height-0.3, z - length + 1.0);
       corridor.add(lamp);
+    }
+
+    // Door frame every 5 segments
+    if(i>0 && i % 5 === 0){
+      const barMat = new THREE.MeshStandardMaterial({ color:0x353c4a, metalness:0.1, roughness:0.9 });
+      const pillarGeo = new THREE.BoxGeometry(0.15, height, 0.6);
+      const beamGeo = new THREE.BoxGeometry(width, 0.12, 0.6);
+      const zf = z + 0.3;
+      const pL = new THREE.Mesh(pillarGeo, barMat); pL.position.set(-width/2+0.15/2, height/2, zf);
+      const pR = new THREE.Mesh(pillarGeo, barMat); pR.position.set( width/2-0.15/2, height/2, zf);
+      const beam = new THREE.Mesh(beamGeo, barMat); beam.position.set(0, height-0.15/2, zf);
+      corridor.add(pL, pR, beam);
     }
   }
 
   // Brighter ambient + starter light near origin for visibility
-  scene.add(new THREE.AmbientLight(0x404040, 0.7));
-  const startLamp = new THREE.PointLight(0x8890a8, 2.5, 10, 2.0);
+  const ambient = new THREE.AmbientLight(0x606060, 1.0);
+  scene.add(ambient);
+  const startLamp = new THREE.PointLight(0x9aa6c8, 3.2, 16, 2.0);
   startLamp.position.set(0, 2.2, -2);
   scene.add(startLamp);
+  // gentle hemisphere light to soften shadows
+  const hemi = new THREE.HemisphereLight(0x8aa0c0, 0x101010, 0.25);
+  scene.add(hemi);
 
-  // Debug: small emissive cube ahead to confirm rendering
-  const dbgMat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0x404060, emissiveIntensity:1.5 });
-  const dbg = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.2), dbgMat);
-  dbg.position.set(0, 1.6, -1.5);
-  scene.add(dbg);
 
   // Simple collision with walls (AABB inside corridor)
   const halfW = (width/2) - 0.35; // margin from walls
@@ -112,15 +133,17 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   // Knife at far end
   let hasKnife = false;
   const knifeGeo = new THREE.BoxGeometry(0.1, 0.02, 0.5);
-  const knifeMat = new THREE.MeshStandardMaterial({ color:0xcccccc, metalness:0.8, roughness:0.3, emissive:0x000000 });
+  const knifeMat = new THREE.MeshStandardMaterial({ color:0xdadada, metalness:0.85, roughness:0.25, emissive:0x2a2a2a, emissiveIntensity:0.3 });
   const knife = new THREE.Mesh(knifeGeo, knifeMat);
   const endZ = -(segments-2)*length; // a bit before the very end
   knife.position.set(0, 1.0, endZ);
   knife.rotation.y = Math.PI * 0.15;
-  const knifeLight = new THREE.PointLight(0xffeeee, 1.2, 4, 2.0);
+  const knifeLight = new THREE.PointLight(0xfff2e6, 1.6, 5.5, 2.2);
   knifeLight.position.set(0.1, 1.2, endZ);
   corridor.add(knife);
   corridor.add(knifeLight);
+  // animate knife for visibility
+  knife.userData.baseY = knife.position.y;
 
   function setPrompt(text){
     if(!text){ promptEl.hidden = true; return; }
@@ -147,7 +170,7 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
       }
     });
 
-    // WASD movement in local camera space when locked and exploring
+  // ZQSD (et WASD) movement in local camera space when locked and exploring
     if(controls.isLocked && gameMode === 'explore'){
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
@@ -170,10 +193,17 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
       camera.position.x = Math.max(-halfW, Math.min(halfW, camera.position.x));
     }
 
-    // Knife pickup proximity
+    // Knife bob/rotate visual
+    if(gameMode === 'explore' && knife.parent){
+      knife.rotation.y += dt * 1.0;
+      knife.position.y = knife.userData.baseY + Math.sin(now*0.003) * 0.05;
+      knifeMat.emissiveIntensity = 0.25 + 0.1*Math.sin(now*0.005);
+    }
+
+    // Knife pickup proximity (press E)
     if(gameMode === 'explore' && !hasKnife){
       const d = camera.position.distanceTo(knife.position);
-      if(d < 1.4){
+      if(d < 2.0){
         setPrompt('Appuyez sur E pour prendre le couteau');
         if(interactPressed){
           hasKnife = true;
@@ -206,6 +236,18 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
 
   // Startup message
   try{ flashMsg('Jeu prêt — cliquez pour regarder', 1800); }catch(e){}
+
+  // =============================
+  // Settings wiring
+  // =============================
+  uiSpeed?.addEventListener('input', ()=>{ speed = parseFloat(uiSpeed.value); });
+  uiFov?.addEventListener('input', ()=>{ camera.fov = parseFloat(uiFov.value); camera.updateProjectionMatrix(); });
+  uiFog?.addEventListener('input', ()=>{ const d = parseFloat(uiFog.value); scene.fog.density = d; });
+  uiAmb?.addEventListener('input', ()=>{ ambient.intensity = parseFloat(uiAmb.value); });
+  uiXhVis?.addEventListener('change', ()=>{ document.getElementById('crosshair').style.display = uiXhVis.checked ? 'block' : 'none'; });
+  uiXhColor?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-color', uiXhColor.value); });
+  uiXhSize?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-size', uiXhSize.value+'px'); });
+  resetPos?.addEventListener('click', ()=>{ camera.position.set(0,1.6,0); });
 
   // =============================
   // Simple Undertale-like fight
