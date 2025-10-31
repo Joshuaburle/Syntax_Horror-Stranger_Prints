@@ -15,7 +15,29 @@ def on_closing():
     root.bell()  # Fait un son pour l'effet
 
 STORY = {
-    # ...existing code...
+    "start": {
+        "text": "Tu te réveilles dans une pièce étrange. Que fais-tu ?",
+        "choices": [("Explorer", "explore"), ("Attendre", "wait")],
+    },
+    "explore": {
+        "text": "Tu trouves une porte et une fenêtre.",
+        "choices": [("Ouvrir la porte", "door"), ("Regarder par la fenêtre", "window")],
+    },
+    "wait": {
+        "text": "Rien ne se passe. Le temps passe.",
+        "choices": [("Se lever", "explore"), ("S'endormir", "end_sleep")],
+    },
+    "door": {
+        "text": "La porte est verrouillée.",
+        "choices": [("Forcer la porte", "end_force"), ("Reculer", "start")],
+    },
+    "window": {
+        "text": "Par la fenêtre, tu vois un jardin.",
+        "choices": [("Grimper", "end_out"), ("Reculer", "start")],
+    },
+    "end_sleep": {"text": "Tu t'endors et te réveilles ailleurs. Fin.", "choices": []},
+    "end_force": {"text": "Tu blesses ta main. Fin.", "choices": []},
+    "end_out": {"text": "Tu sors dans le jardin et trouves la liberté. Fin.", "choices": []},
 }
 
 root = tk.Tk()
