@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from functools import partial
+import os
 try:
     from PIL import Image, ImageTk
     HAS_PIL = True
@@ -51,12 +52,24 @@ image_frame.place(x=10, y=10)  # Position fixe dans le coin
 # Chargement et affichage de l'image
 if HAS_PIL:
     try:
-        # Charger l'image depuis le dossier images
-        image = Image.open("images/corner_image.png")
+        # Chemin absolu de l'image (dans le dossier images à côté du script)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        image_path = os.path.join(script_dir, "images", "corner_image.png")
+
+        # Charger l'image
+        image = Image.open(image_path)
+
+        # Choisir l'algorithme de redimensionnement compatible selon la version de Pillow
+        try:
+            resample_algo = Image.Resampling.LANCZOS  # Pillow >= 9.1
+        except AttributeError:
+            # Fallback pour anciennes versions de Pillow
+            resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
+
         # Redimensionner l'image (ajustez la taille selon vos besoins)
-        image = image.resize((80, 80), Image.Resampling.LANCZOS)
+        image = image.resize((80, 80), resample=resample_algo)
         photo = ImageTk.PhotoImage(image)
-        
+
         # Créer le label avec l'image
         image_label = tk.Label(
             image_frame,
@@ -64,11 +77,13 @@ if HAS_PIL:
             bg='black',
             bd=0  # Pas de bordure
         )
-        image_label.image = photo  # Garder une référence
+        # Conserver une référence pour éviter le garbage collection
+        image_label.image = photo
         image_label.pack()
-        
+
     except Exception as e:
         print(f"Erreur de chargement de l'image: {e}")
+        print(f"Chemin testé: {locals().get('image_path', 'inconnu')}")
         # Placeholder en cas d'erreur
         placeholder = tk.Label(
             image_frame,
@@ -95,6 +110,8 @@ text_label = tk.Label(
     font=('Courier', 12)
 )
 text_label.pack(fill="both", expand=True)
+# S'assurer que l'image reste au-dessus du texte
+image_frame.lift()
 
 # Frame pour les boutons
 btn_frame = tk.Frame(root, bg='black')
@@ -142,4 +159,6 @@ def show(node_id):
 show("start")
 
 # Lancer la boucle principale
+# Remonter l'image encore une fois après la mise en page initiale
+root.after(0, image_frame.lift)
 root.mainloop()
