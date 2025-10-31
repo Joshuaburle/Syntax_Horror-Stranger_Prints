@@ -14,30 +14,77 @@ def on_closing():
     root.bell()  # Fait un son pour l'effet
 
 STORY = {
-    "start": {
-        "text": "Tu te réveilles dans une pièce étrange. Que fais-tu ?",
-        "choices": [("Explorer", "explore"), ("Attendre", "wait")],
+    "presentation": {
+        "text": "Jean-Michel Pointeur (v1.0)
+        "Bonjour 😊"
+        "Je suis Jean-Michel Pointeur, ton tuteur personnel pour comprendre simplement les pointeurs en C.
+        "Ensemble, on va voir ce qu’est une adresse, comment lire et modifier une valeur via un pointeur, et adopter de bons réflexes de sécurité. Youpi !"
+
+        "Prends ton temps, réponds à ton rythme : je t’explique tout pas à pas."
+
+    #PLACEHOLDER : Bouton ENTER
+    "Appuie sur ENTER pour commencer."
     },
-    "explore": {
-        "text": "Tu trouves une porte et une fenêtre.",
-        "choices": [("Ouvrir la porte", "door"), ("Regarder par la fenêtre", "window")],
+
+    "Enter your name": {
+        "text": "Bienvenue dans cette aventure interactive !
+        "Comment t'appelles-tu ?",
+
+    #PLACEHOLDER : Champ de texte pour le nom
+    "Entrez votre nom :", 
+    #PLACEHOLDER : Bouton SUBMIT
+    "Valider"
     },
-    "wait": {
-        "text": "Rien ne se passe. Le temps passe.",
-        "choices": [("Se lever", "explore"), ("S'endormir", "end_sleep")],
+
+    "first question": {
+        "Text": L'adresse de variable, operateur&   
+        Une variable en C a une adresse en mémoire. Pour obtenir cette adresse, on utilise l'opérateur &.
+        Selon toi que represente &n ?", 
+
+    #PLACEHOLDER : BOUTON REPONSE 1
+    "L'adresse de la variable n",
+    #PLACEHOLDER : BOUTON REPONSE 2 fausse
+    "La valeur de la variable n",
     },
-    "door": {
-        "text": "La porte est verrouillée.",
-        "choices": [("Forcer la porte", "end_force"), ("Reculer", "start")],
+
+    "second question": {
+        "text": "Déréferencer un pointeur, c'est accéder à la valeur stockée à l'adresse pointée. On utilise l'opérateur * pour cela.
+        Que fait l'expression *p si p est un pointeur vers un entier ?",
+
+    #PLACEHOLDER : BOUTON REPONSE 1
+    "Accède à la valeur entière pointée par p",
+    #PLACEHOLDER : BOUTON REPONSE 2 fausse
+    "Accède à l'adresse de p",  
     },
-    "window": {
-        "text": "Par la fenêtre, tu vois un jardin.",
-        "choices": [("Grimper", "end_out"), ("Reculer", "start")],
+
+    "third question": {
+        "text": "Q3 — Comprendre l’envers."
+        "Que fait l’expression &*p si p est un pointeur valide ?",
+    
+    #PLACEHOLDER : BOUTON REPONSE 1 (CELLE QUI DECLENCHE L'ERREUR)
+        "Retourne la valeur stockée à l'adresse de p",
+    #PLACEHOLDER : BOUTON REPONSE 1
+        "Retourne l'adresse pointée par p",
     },
-    "end_sleep": {"text": "Tu t'endors et te réveilles ailleurs. Fin.", "choices": []},
-    "end_force": {"text": "Tu blesses ta main. Fin.", "choices": []},
-    "end_out": {"text": "Tu sors dans le jardin et trouves la liberté. Fin.", "choices": []},
-}
+
+    " CAS D'ERREUR": {
+        "Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre."
+    #PLACEHOLDER : REMETTRE LA QUESTION PRECEDENTE
+    #PUIS REPRODUIRE L'ERREUR. LA QUESTION NE PEUT PAS ETRE VALIDEE.
+
+    "Jean-Michel s'enerve": {
+        "text": "Jean-Michel Pointeur (v1.1)
+        Ça suffit les erreurs ! On va tout reprendre depuis le début.
+        Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !
+},
+
+    "4)Strange question": {
+        "Si tu ne pouvais sauver qu'une personne, tu choisirais de sauver :",
+    #PLACEHOLDER : BOUTON REPONSE 1
+        "Un(e) ami(e)",
+    #PLACEHOLDER : BOUTON REPONSE 2
+        "Un(e) membre de ta famille",
+    }
 
 root = tk.Tk()
 root.title("Terminal")
