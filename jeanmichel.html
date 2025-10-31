@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pointeur Tutor</title>
+    <link rel="stylsheet" href="style.css">   
+</head>
+
+<body>
+
+ <div class="container">
+    <div class="topbar">
+      Best viewed at 1024×768 — Optimisé pour Internet Explorer 6 / Netscape 7 — <span class="counter">Visitors: 0004821</span>
+    </div>
+
+    <div class="header">
+      <div class="logo">JEAN-MICHEL POINTEUR<span class="badge">v1.0</span></div>
+      <div class="tagline">La super application pour enfin <strong>comprendre les pointeurs en C</strong> sans se prendre la tête.</div>
+    </div>
+
+    <div class="marquee">
+      <marquee behavior="scroll" direction="left" scrollamount="4">
+        Nouveau ! Programme d’entraînement guidé, exercices progressifs, visualisation mémoire &amp; quiz — Téléchargez l’exécutable Windows gratuit dès maintenant !
+      </marquee>
+    </div>
+
+    <table class="layout">
+      <tr>
+        <td class="sidebar" valign="top">
+          <ul class="nav">
+            <li><a href="#accueil">Accueil</a></li>
+            <li><a href="#pourquoi">Pourquoi les pointeurs ?</a></li>
+            <li><a href="#programme">Notre programme</a></li>
+            <li><a href="#telechargement">Téléchargement</a></li>
+            <li><a href="#temoignages">Témoignages</a></li>
+            <li><a href="#faq">FAQ</a></li>
+            <li><a href="#contact">Contact &amp; Newsletter</a></li>
+          </ul>
+
+          <div class="box">
+            <div class="under-construction">🔧 Site en amélioration</div>
+            Quelques captures arrivent bientôt (visualisation des pointeurs en “mode mémoire”).
+          </div>
+
+          <div class="box notice">
+            <strong>Astuce</strong> : Si “p” vous fait peur, laissez-vous guider par le mode <em>Pas à pas</em> — on vous explique chaque déréférencement en français simple.
+          </div>
+        </td>
+
+        <td class="content" valign="top">
+          <a name="accueil"></a>
+          <h1>Bienvenue — Apprenez les pointeurs en C, une fois pour toutes</h1>
+          <p>
+            Marre des explications floues ? Avec <strong>Jean-Michel Pointeur</strong>, vous suivez un <em>parcours structuré</em> : 
+            mini-leçons, animations, défis corrigés, et un coach intégré qui vous accompagne tout au long de l’apprentissage.
+          </p>
+          <div class="box">
+            <strong>Objectif</strong> : passer de “je confonds adresse et valeur” à “j’écris du C propre et sûr” en quelques séances.
+            <br>Vous verrez enfin <span class="highlight">ce qui se passe en mémoire</span> quand vous manipulez des pointeurs.
+          </div>
+
+          <a name="pourquoi"></a>
+          <h2>Pourquoi les pointeurs sont si importants ?</h2>
+          <table class="features">
+            <tr><th>Compétence</th><th>Ce que vous gagnez</th></tr>
+            <tr><td>Comprendre l’adresse &amp; la valeur</td><td>Moins de bugs, débogage plus rapide</td></tr>
+            <tr><td>Pointeurs &amp; tableaux/chaînes</td><td>Manipulation efficace des données</td></tr>
+            <tr><td>Pointeurs de fonctions</td><td>Callbacks, API flexibles, conception modulaire</td></tr>
+            <tr><td>Bonne gestion mémoire</td><td>Programmes plus sûrs et performants</td></tr>
+          </table>
+
+          <a name="programme"></a>
+          <h2>Notre programme d’entraînement</h2>
+          <div class="box">
+            <ol>
+              <li><strong>Les bases</strong> — adresse, valeur, opérateurs <code>&amp;</code> et <code>*</code>, null pointer.</li>
+              <li><strong>Tableaux &amp; chaînes</strong> — arithmétique de pointeurs, itération, <code>const</code>.</li>
+              <li><strong>Fonctions &amp; pointeurs</strong> — passage par adresse, pointeurs de fonctions.</li>
+              <li><strong>Mémoire dynamique</strong> — <code>malloc</code>/<code>free</code>, schémas de propriété.</li>
+              <li><strong>Pièges courants</strong> — hors limites, use-after-free, double free, aliasing.</li>
+              <li><strong>Défis récap’</strong> — quiz chronométrés + corrections détaillées.</li>
+            </ol>
+          </div>
+
+          <a name="telechargement"></a>
+          <h2>Téléchargement de l’exécutable Windows</h2>
+          <div class="box download">
+            <p>
+              <strong>Jean-Michel Pointeur v1.0 (Windows)</strong><br>
+              Taille : ~18&nbsp;MB — Licence : Usage personnel gratuit — Langue : FR
+            </p>
+            <p>
+              <a class="dl-btn" href="downloads/jean-michel-pointeur_v1.0.exe">⬇️ Télécharger l’exécutable</a>
+              <span class="badge">MD5</span> <code>e3b0c44298fc1c149afbf4c8996fb924</code><br>
+              <small>Compatible Windows 7/8/10/11 — Installation sans droits admin.</small>
+            </p>
+            <table class="sysreq">
+              <tr><td><strong>CPU</strong></td><td>1&nbsp;GHz+</td></tr>
+              <tr><td><strong>RAM</strong></td><td>2&nbsp;Go</td></tr>
+              <tr><td><strong>Espace disque</strong></td><td>100&nbsp;Mo</td></tr>
+              <tr><td><strong>Écran</strong></td><td>1024×768 recommandé</td></tr>
+            </table>
+          </div>
+
+          <a name="temoignages"></a>
+          <h2>Ils ont enfin “cliqué”</h2>
+          <p class="testi">“Je confondais toujours adresse et valeur. Les schémas pas-à-pas m’ont sauvé le projet !” — <em>Joshua, étudiant Holberton</em></p>
+          <p class="testi">“Le mode ‘mémoire animée’ m’a permis de comprendre <code>*p</code> en 10 minutes.” — <em>Joan, dev en cours</em></p>
+          <p class="testi">“Les quiz corrigés sont top pour réviser avant les évaluations.” — <em>Morgane, école de programmation</em></p>
+
+          <a name="faq"></a>
+          <h2>FAQ</h2>
+          <dl class="faq">
+            <dt>Est-ce pour débutant·e ?</dt>
+            <dd>Oui. Le parcours commence par les fondamentaux, sans jargon inutile.</dd>
+            <dt>Mac / Linux ?</dt>
+            <dd>Une version Mac &amp; Linux est en préparation. D’ici là, utilisez l’exécutable Windows via une VM si besoin.</dd>
+            <dt>Est-ce un cours complet de C ?</dt>
+            <dd>Non, c’est un <em>booster concentré</em> sur la compréhension des pointeurs (le point faible n°1 des apprenants).</dd>
+            <dt>Y a-t-il des explications sur la mémoire dynamique ?</dt>
+            <dd>Oui, avec des animations <code>malloc/free</code> et des exercices guidés.</dd>
+          </dl>
+
+          <a name="contact"></a>
+          <h2>Contact &amp; Newsletter</h2>
+          <div class="box">
+            <p>
+              Une question, un bug, une idée ? Écrivez-nous : <a href="mailto:support@jeanmichelpointeur.com">support@jeanmichelpointeur.example</a><br>
+              Abonnez-vous à la newsletter pour recevoir les mises à jour (v1.1, packs d’exos, etc.).
+            </p>
+            <form action="#" method="post">
+              <label for="email" style="font-size:12px;">Votre e-mail :</label><br>
+              <input type="text" id="email" name="email" size="32" value="" style="border:1px solid #99bbff; padding:4px;">
+              <input type="submit" value="S'abonner" style="border:2px outset #003399; background:#cfe0ff; font-weight:bold; padding:4px 8px;">
+            </form>
+            <p style="font-size:11px; color:#333;">
+              <strong>Confidentialité :</strong> votre e-mail ne sera jamais partagé. Désinscription en un clic.
+            </p>
+          </div>
+
+          <h2>Plan du site (ordre conseillé)</h2>
+          <ol>
+            <li>Accueil — pourquoi l’app existe, promesse claire.</li>
+            <li>Pourquoi les pointeurs ? — bénéfices concrets pour vos projets.</li>
+            <li>Notre programme — étapes et ce que vous allez apprendre.</li>
+            <li>Téléchargement — exécutable, exigences, checksum, compatibilité.</li>
+            <li>Témoignages — retours d’utilisateurs réels.</li>
+            <li>FAQ — réponses rapides aux doutes fréquents.</li>
+            <li>Contact &amp; Newsletter — support et mises à jour.</li>
+          </ol>
+
+        </td>
+      </tr>
+    </table>
+
+    <div class="footer">
+      © 2003-2025 Jean-Michel Pointeur. Tous droits réservés.
+      — Dernière mise à jour : 31/10/2025 —
+      <a href="#telechargement">Télécharger</a> |
+      <a href="#faq">FAQ</a> |
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+
+</body>
+</html>
