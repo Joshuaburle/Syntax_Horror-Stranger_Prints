@@ -1,5 +1,7 @@
-#!/usr/bin/env bash
-# chemin home utilisé : /home/frxjoan
+#!/usr/bin/env python3
+
+import tkinter as tk
+from functools import partial
 import tkinter as tk
 from functools import partial
 try:
@@ -8,14 +10,19 @@ try:
 except ImportError:
     HAS_PIL = False
 
+def on_closing():
+    text_var.set("> Vous ne pouvez pas quitter comme ça...")
+    root.bell()  # Fait un son pour l'effet
+
 STORY = {
     # ...existing code...
 }
 
 root = tk.Tk()
-root.title("Terminal - JeanMichel")
+root.title("Terminal")
 root.geometry("600x400")
 root.configure(bg='black')
+root.protocol("WM_DELETE_WINDOW", on_closing)  # Intercepte la croix
 
 # Frame pour l'image en haut à gauche
 image_frame = tk.Frame(root, bg='black')
