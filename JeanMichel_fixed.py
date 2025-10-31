@@ -71,7 +71,7 @@ Que fait l'expression &*p si p est un pointeur valide ?""",
         "text": """Jean-Michel Pointeur (v1.1)
 Ça suffit les erreurs ! On va tout reprendre depuis le début.
 Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !""",
-        "choices": [("Recommencer", "first_question")]
+        "choices": [("Recommencer", "third_question")]
     },
 
     "strange_question": {
@@ -81,10 +81,15 @@ Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettr
             ("Un(e) membre de ta famille", "end")
         ]
     },
+    "strange_question": {
+        "text": "Est-ce que tu préfères :",
+        "choices": [
+            ("Me rejoindre ?", "end"),
+            ("Que je vienne te chercher ?", "end")
+        ]
+    },
 
-    "end": {
-        "text": "Merci d'avoir participé !",
-        "choices": []
+    d
     }
 }
 
