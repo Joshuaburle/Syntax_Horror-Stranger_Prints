@@ -2,7 +2,11 @@
 # chemin home utilisé : /home/frxjoan
 import tkinter as tk
 from functools import partial
-from PIL import Image, ImageTk
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 STORY = {
     # ...existing code...
@@ -18,19 +22,29 @@ image_frame = tk.Frame(root, bg='black')
 image_frame.pack(anchor='nw', padx=20, pady=20)
 
 # Chargement et affichage de l'image
-try:
-    image = Image.open("images/votre_image.png")  # Remplacer par votre image
-    image = image.resize((100, 100))  # Ajuster la taille selon besoin
-    photo = ImageTk.PhotoImage(image)
-    image_label = tk.Label(
-        image_frame,
-        image=photo,
-        bg='black'
-    )
-    image_label.image = photo  # Garder une référence
-    image_label.pack()
-except:
-    print("Erreur: Image non trouvée")
+if HAS_PIL:
+    try:
+        image = Image.open("images/votre_image.png")
+        image = image.resize((100, 100))
+        photo = ImageTk.PhotoImage(image)
+        image_label = tk.Label(
+            image_frame,
+            image=photo,
+            bg='black'
+        )
+        image_label.image = photo
+        image_label.pack()
+    except:
+        placeholder = tk.Label(
+            image_frame,
+            text="[Image placeholder]",
+            bg='black',
+            fg='#00ff00',
+            font=('Courier', 10)
+        )
+        placeholder.pack()
+else:
+    print("PIL non installé - fonctionnement sans images")
 
 # Style terminal (texte)
 text_var = tk.StringVar()
