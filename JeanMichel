@@ -9,15 +9,98 @@ try:
 except ImportError:
     HAS_PIL = False
 
+# Variables globales
+root = None
+text_var = None
+
 def on_closing():
     text_var.set("> Vous ne pouvez pas quitter comme ça...")
     root.bell()  # Fait un son pour l'effet
 
 STORY = {
+    "start": {
+        "text": """Jean-Michel Pointeur (v1.0)
+
+Bonjour 😊
+
+Je suis Jean-Michel Pointeur, ton tuteur personnel pour comprendre simplement les pointeurs en C.
+Ensemble, on va voir ce qu'est une adresse, comment lire et modifier une valeur via un pointeur, et adopter de bons réflexes de sécurité. Youpi !
+
+Prends ton temps, réponds à ton rythme : je t'explique tout pas à pas.""",
+        "choices": [("Appuyer sur ENTER pour commencer", "enter_name")]
+    },
+
+    "enter_name": {
+        "text": """Bienvenue dans cette aventure interactive !
+Comment t'appelles-tu ?""",
+        "choices": [("Valider", "first_question")]
+    },
+
+    "first_question": {
+        "text": """L'adresse de variable, opérateur &
+        
+Une variable en C a une adresse en mémoire. Pour obtenir cette adresse, on utilise l'opérateur &.
+Selon toi que représente &n ?""",
+        "choices": [
+            ("L'adresse de la variable n", "second_question"),
+            ("La valeur de la variable n", "error_first")
+        ]
+    },
+
+    "second_question": {
+        "text": """Déréférencer un pointeur, c'est accéder à la valeur stockée à l'adresse pointée. On utilise l'opérateur * pour cela.
+Que fait l'expression *p si p est un pointeur vers un entier ?""",
+        "choices": [
+            ("Accède à la valeur entière pointée par p", "third_question"),
+            ("Accède à l'adresse de p", "error_second")
+        ]
+    },
+
+    "third_question": {
+        "text": """Q3 — Comprendre l'envers.
+Que fait l'expression &*p si p est un pointeur valide ?""",
+        "choices": [
+            ("Retourne la valeur stockée à l'adresse de p", "error_third"),
+            ("Retourne l'adresse pointée par p", "strange_question")
+        ]
+    },
+
+    "error_first": {
+        "text": "Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.",
+        "choices": [("Réessayer", "first_question")]
+    },
+
+    "error_second": {
+        "text": "Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.",
+        "choices": [("Réessayer", "second_question")]
+    },
+
+    "error_third": {
+        "text": "Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.",
+        "choices": [("Réessayer", "third_question")]
+    },
+
+    "jean_michel_angry": {
+        "text": """Jean-Michel Pointeur (v1.1)
+
+Ça suffit les erreurs ! On va tout reprendre depuis le début.
+Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !""",
+        "choices": [("Recommencer", "start")]
+    },
+
+    "strange_question": {
+        "text": "Si tu ne pouvais sauver qu'une personne, tu choisirais de sauver :",
+        "choices": [
+            ("Un(e) ami(e)", "jean_michel_angry"),
+            ("Un(e) membre de ta famille", "jean_michel_angry")
+        ]
+    }
+
+STORY = {
     "presentation": {
-        "text": "Jean-Michel Pointeur (v1.0)
-        "Bonjour 😊"
-        "Je suis Jean-Michel Pointeur, ton tuteur personnel pour comprendre simplement les pointeurs en C.
+        "text": """Jean-Michel Pointeur (v1.0)
+Bonjour 😊
+Je suis Jean-Michel Pointeur, ton tuteur personnel pour comprendre simplement les pointeurs en C.
         "Ensemble, on va voir ce qu’est une adresse, comment lire et modifier une valeur via un pointeur, et adopter de bons réflexes de sécurité. Youpi !"
 
         "Prends ton temps, réponds à ton rythme : je t’explique tout pas à pas."
