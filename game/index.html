@@ -3,35 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Phase Jeux — Prototype</title>
+    <title>Phase Jeux — Prototype FPS (PS2‑like)</title>
     <link rel="stylesheet" href="style.css" />
+    <!-- Import map to resolve bare specifier 'three' used by example modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
   </head>
   <body>
-    <main class="container">
-      <header>
-        <h1>Phase Jeux — Prototype (branche test)</h1>
-        <p class="tag">Prototype sécurisé, quittable à tout moment.</p>
-      </header>
-
-      <section class="scene">
-        <div class="corridor">
-          <div class="player" aria-label="Joueur"></div>
-          <div class="note">Couloir placeholder — assets à intégrer.</div>
-        </div>
-      </section>
-
-      <section class="controls">
-        <p>Contrôles (placeholder): ZQSD ou flèches pour se déplacer.</p>
-        <button id="start">Démarrer le prototype</button>
-        <button id="quit">Quitter</button>
+    <div id="hud">
+      <div class="panel">
+        <h1>Prototype FPS — Couloir</h1>
+        <p>Cliquer pour regarder. ZQSD/Flèches pour avancer. Échap pour libérer le curseur.</p>
+        <p class="muted">Style PS2 simulé: rendu basse résolution + fog.</p>
         <a href="../jeanmichel.html" class="back">Retour au site</a>
-      </section>
+        <button id="ambToggle" class="btn">Ambiance: OFF</button>
+      </div>
+      <div id="prompt" class="prompt" hidden></div>
+      <div id="msg" class="msg" hidden></div>
+      <div id="crosshair"><span></span></div>
+    </div>
+    <div id="viewport"></div>
 
-      <footer>
-        <small>Ce prototype n'effectue aucune action système et peut être fermé librement.</small>
-      </footer>
-    </main>
+    <!-- Fight overlay (minigame style Undertale) -->
+    <div id="fightWrap" class="fight-wrap" hidden>
+      <canvas id="fight" width="320" height="200"></canvas>
+      <div class="fight-ui">
+        <span id="fightInfo"></span>
+        <button id="fightExit" hidden>Continuer</button>
+      </div>
+    </div>
 
-    <script src="script.js"></script>
+    <!-- Script en module pour imports depuis CDN -->
+    <script type="module" src="script.js"></script>
+    <script>
+      // Affiche les erreurs JS dans le HUD si quelque chose bloque le rendu
+      window.addEventListener('error', (e)=>{
+        const el = document.getElementById('msg');
+        if(!el) return;
+        el.hidden = false;
+        el.textContent = 'Erreur: ' + (e?.message || 'inconnue');
+      });
+    </script>
   </body>
   </html>
