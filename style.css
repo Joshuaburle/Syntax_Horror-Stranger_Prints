@@ -1,0 +1,163 @@
+body {
+      background: #cfd8ff url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==') repeat;
+      font-family: Verdana, Arial, Helvetica, sans-serif;
+      color: #000033;
+      margin: 0;
+    }
+    a { color: #0033cc; text-decoration: underline; }
+    a:hover { color: #ff3300; }
+    .container {
+      width: 900px;
+      margin: 0 auto;
+      border-left: 3px double #003399;
+      border-right: 3px double #003399;
+      background: #ffffff;
+    }
+    .topbar {
+      background: linear-gradient(#003399, #3366cc);
+      color: #ffffff;
+      padding: 6px 10px;
+      font-size: 11px;
+      text-align: right;
+      border-bottom: 2px solid #002266;
+    }
+    .header {
+      background: #99bbff;
+      border-bottom: 3px ridge #6688cc;
+      text-align: center;
+      padding: 14px 10px;
+    }
+    .logo {
+      font-family: "Comic Sans MS", "Trebuchet MS", Verdana, sans-serif;
+      font-size: 36px;
+      letter-spacing: 1px;
+      color: #001a66;
+      text-shadow: 1px 1px 0 #ffffff;
+    }
+    .tagline {
+      font-size: 14px;
+      color: #002a88;
+      margin-top: 6px;
+    }
+    .marquee {
+      background: #ffffcc;
+      border-top: 1px solid #cc9900;
+      border-bottom: 1px solid #cc9900;
+      font-weight: bold;
+      color: #663300;
+      padding: 4px 0;
+    }
+    .layout {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .sidebar {
+      width: 220px;
+      background: #eef3ff;
+      border-right: 2px solid #99bbff;
+      vertical-align: top;
+    }
+    .nav {
+      list-style: none;
+      margin: 0; padding: 0;
+      font-size: 12px;
+    }
+    .nav li {
+      border-bottom: 1px dashed #aac1ff;
+    }
+    .nav a {
+      display: block;
+      padding: 8px 10px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .nav a:hover { background: #dbe7ff; }
+    .content {
+      padding: 18px 20px;
+      line-height: 1.45;
+    }
+    h1 {
+      font-size: 22px;
+      border-bottom: 3px double #99bbff;
+      padding-bottom: 6px;
+      color: #002266;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 18px;
+      color: #003399;
+      margin-top: 24px;
+      border-left: 6px solid #99bbff;
+      padding-left: 8px;
+    }
+    .box {
+      border: 2px groove #99bbff;
+      background: #f7faff;
+      padding: 12px;
+      margin: 14px 0;
+      font-size: 13px;
+    }
+    .download {
+      border: 3px ridge #2e7d32;
+      background: #e8f5e9;
+    }
+    .dl-btn {
+      display: inline-block;
+      padding: 10px 16px;
+      margin-top: 8px;
+      border: 2px outset #2e7d32;
+      background: #a5d6a7;
+      font-weight: bold;
+      text-decoration: none;
+      color: #0b3d0b;
+    }
+    .dl-btn:hover { background: #bfe3c0; border-style: inset; }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      background: #003399;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+    .features td, .features th {
+      border: 1px solid #cfe0ff;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .features {
+      border-collapse: collapse;
+      width: 100%;
+      background: #ffffff;
+      margin-top: 8px;
+    }
+    .testi {
+      font-style: italic; font-size: 12px; color: #333366;
+    }
+    .footer {
+      background: #e6ecff;
+      border-top: 2px solid #99bbff;
+      font-size: 11px;
+      padding: 10px 12px;
+      color: #002266;
+    }
+    .counter {
+      font-family: "Courier New", monospace;
+      background: #000; color: #0f0;
+      padding: 2px 6px;
+      border: 2px inset #333;
+    }
+    .under-construction {
+      font-size: 11px; color: #aa0000; font-weight: bold;
+    }
+    .faq dt { font-weight: bold; margin-top: 8px; }
+    .faq dd { margin-left: 0; margin-bottom: 10px; }
+    .notice {
+      background: #fff7e6;
+      border: 1px solid #ffc266;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .highlight { background: #ffff99; }
+    .sysreq td { padding: 4px 6px; font-size: 12px; }
