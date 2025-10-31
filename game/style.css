@@ -1,0 +1,61 @@
+:root{
+  --bg:#0a0a0f;
+  --fg:#eaeaf2;
+  --muted:#9aa0a6;
+  --accent:#b71c1c;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Inter,Arial,Helvetica,sans-serif;
+  background:radial-gradient(1200px 600px at 50% -10%,#14141c 0%,var(--bg) 60%);
+  color:var(--fg);
+}
+.container{max-width:960px;margin:0 auto;padding:24px}
+header h1{margin:0 0 8px;font-weight:700;letter-spacing:.3px}
+.tag{color:var(--muted)}
+
+.scene{margin:24px 0}
+.corridor{
+  position:relative;
+  height:360px;
+  background:linear-gradient(180deg,#0e0e14 0%,#0b0b10 100%);
+  border:1px solid #1c1c24;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.6) inset, 0 6px 20px rgba(0,0,0,.4);
+}
+.corridor::before{
+  content:"";
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 2px,transparent 2px 8px);
+  mix-blend-mode:overlay;
+  pointer-events:none;
+}
+.player{
+  position:absolute;left:24px;bottom:24px;width:48px;height:64px;
+  background:linear-gradient(#2b2b38,#1c1c26);
+  border:1px solid #2a2a38;border-radius:6px;
+  box-shadow:0 4px 12px rgba(0,0,0,.6);
+}
+.note{
+  position:absolute;right:16px;bottom:16px;color:var(--muted);font-size:.9rem
+}
+.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button,.back{
+  background:#16161f;color:var(--fg);border:1px solid #2a2a3a;
+  padding:10px 14px;border-radius:8px;text-decoration:none;cursor:pointer;
+}
+button:hover,.back:hover{border-color:#3a3a4f}
+footer{margin-top:24px;color:var(--muted)}
+
+/* simple shake effect for placeholder jumpscare */
+.shake{animation:shake .5s linear 1}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)}
+  60%{transform:translateX(-6px)}
+  80%{transform:translateX(6px)}
+}
