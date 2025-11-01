@@ -102,23 +102,23 @@ function createCorridor() {
 }
 
 function addLights() {
-    scene.add(new THREE.AmbientLight(0x4a3a3a, 0.1));
-    const lightCount = 8;
+    scene.add(new THREE.AmbientLight(0x666666, 0.3)); // Plus de lumière ambiante
+    const lightCount = 10;
     const lights = [];
     for (let i = 0; i < lightCount; i++) {
-        const light = new THREE.PointLight(0xff8844, 1.5, 12, 2);
+        const light = new THREE.PointLight(0xffaa66, 2.5, 15, 1.5); // Plus fort et plus de portée
         light.position.set(0, CONFIG.corridor.height-0.3, -i*(CONFIG.corridor.length/lightCount)-2);
         light.castShadow = true;
         scene.add(light);
         lights.push(light);
-        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), new THREE.MeshBasicMaterial({color:0xff6633}));
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8), new THREE.MeshBasicMaterial({color:0xffaa44}));
         bulb.position.copy(light.position);
         scene.add(bulb);
     }
     setInterval(() => {
         lights.forEach(light => {
-            if (Math.random()<0.05) light.intensity = Math.random()*2;
-            else light.intensity += (1.5-light.intensity)*0.1;
+            if (Math.random()<0.03) light.intensity = Math.random()*3;
+            else light.intensity += (2.5-light.intensity)*0.15;
         });
     }, 100);
 }
