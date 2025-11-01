@@ -1,216 +1,188 @@
-:root{
-  --fg:#eaeaf2;
-  --muted:#9aa0a6;
-}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Inter,Arial,Helvetica,sans-serif;
-  background:#000;
-  color:var(--fg);
-  overflow:hidden;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-/* HUD */
-#hud{position:fixed;inset:0;pointer-events:none;display:flex;align-items:flex-start;justify-content:flex-start}
-/* HUD panels - style Undertale sombre */
-.hud-panel {
-  position: fixed;
-  background: linear-gradient(135deg, rgba(20,10,12,0.92), rgba(30,15,18,0.88));
-  border: 3px solid #4a2528;
-  box-shadow: 
-    0 0 20px rgba(180,60,60,0.3),
-    inset 0 0 30px rgba(0,0,0,0.5);
-  padding: 16px;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
-  color: #d4a5a5;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  pointer-events: auto;
-  image-rendering: pixelated;
-  backdrop-filter: blur(2px);
+body {
+    background: #000;
+    color: #fff;
+    font-family: "Courier New", monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
 
-.hud-panel::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.1) 2px,
-    rgba(0,0,0,0.1) 4px
-  );
-  pointer-events: none;
-}
-#hud h1{margin:0 0 6px;font-size:18px}
-#hud p{margin:0 0 6px}
-#hud .muted{color:var(--muted)}
-.back{display:inline-block;margin-top:4px;color:#eaeaf2;text-decoration:none;border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:8px}
-.back:hover{border-color:rgba(255,255,255,.26)}
-.btn{display:inline-block;margin-top:4px;color:#eaeaf2;background:#16161f;border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:8px;cursor:pointer}
-.btn:hover{border-color:rgba(255,255,255,.26)}
-
-/* Right-side settings panel */
-.panel.right{position:fixed;right:10px;top:10px;max-width:260px}
-.panel.right .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
-.panel.right input[type=range]{width:140px}
-.panel.right input[type=color]{width:36px;height:24px;padding:0;border:1px solid rgba(255,255,255,.15);background:transparent;border-radius:6px}
-.panel.right hr{border:none;border-top:1px solid rgba(255,255,255,.1);margin:8px 0}
-
-/* Prompts & crosshair - style boîte de dialogue Undertale sombre */
-.prompt{
-  position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
-  background: linear-gradient(135deg, rgba(15,8,10,0.95), rgba(25,12,15,0.92));
-  color: #f4d4d4;
-  padding: 18px 32px;
-  border: 4px solid #5a2a2f;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
-  font-weight: bold;
-  text-shadow: 2px 2px 3px rgba(0,0,0,0.9);
-  box-shadow: 
-    0 0 25px rgba(200,80,80,0.4),
-    inset 0 0 20px rgba(0,0,0,0.6);
-  image-rendering: pixelated;
-  letter-spacing: 1px;
-}
-.msg{
-  position:fixed;left:50%;top:80px;transform:translateX(-50%);
-  background: linear-gradient(135deg, rgba(15,8,10,0.95), rgba(25,12,15,0.92));
-  color: #f4d4d4;
-  padding: 18px 32px;
-  border: 4px solid #5a2a2f;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
-  font-weight: bold;
-  text-shadow: 2px 2px 3px rgba(0,0,0,0.9);
-  box-shadow: 
-    0 0 25px rgba(200,80,80,0.4),
-    inset 0 0 20px rgba(0,0,0,0.6);
-  image-rendering: pixelated;
-  letter-spacing: 1px;
-}
-.prompt::before, .msg::before {
-  content: '* ';
-  color: #c85a5a;
-  font-size: 20px;
-  margin-right: 4px;
-}
-#crosshair{position:fixed;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);opacity:.65;pointer-events:none}
-#crosshair{--xh-size:14px;--xh-color:#c85a5a}
-#crosshair span{display:block;position:absolute;left:50%;top:50%;width:var(--xh-size);height:1px;background:var(--xh-color);transform:translate(-50%,-50%);filter:drop-shadow(0 0 3px rgba(200,90,90,0.6))}
-#crosshair span::before{content:"";position:absolute;left:50%;top:50%;width:1px;height:var(--xh-size);background:var(--xh-color);transform:translate(-50%,-50%)}
-
-/* Viewport */
-#viewport{position:fixed;inset:0}
-canvas{
-  width:100vw;height:100vh;display:block;
-  image-rendering: pixelated; /* nearest-neighbor upscale for PS2-like look */
+#game {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    border: 5px solid #fff;
 }
 
-/* Fight overlay - style sombre Observo */
-.fight-wrap{
-  position:fixed;inset:0;
-  display:flex;align-items:center;justify-content:center;gap:12px;flex-direction:column;
-  background: linear-gradient(180deg, rgba(10,5,8,0.85), rgba(15,8,10,0.9));
-  backdrop-filter:blur(4px);
-}
-.fight-wrap[hidden]{display:none !important}
-#fight{
-  border: 4px solid #8a4a4a;
-  background:#000;
-  width:min(90vw,640px);
-  height:auto;
-  image-rendering:pixelated;
-  box-shadow: 0 0 40px rgba(200,80,80,0.5), inset 0 0 20px rgba(0,0,0,0.8);
-}
-.fight-ui{display:flex;gap:12px;align-items:center;color:#d4a5a5;font-family:'Courier New',monospace}
-#fightExit{
-  background: linear-gradient(135deg, rgba(20,10,12,0.9), rgba(30,15,18,0.85));
-  color:#f4d4d4;
-  border:3px solid #5a2a2f;
-  padding:10px 20px;
-  font-family:'Courier New',monospace;
-  font-weight:bold;
-  cursor:pointer;
-  box-shadow: 0 0 15px rgba(200,80,80,0.3);
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
-}
-#fightExit:hover{
-  border-color:#8a4a4a;
-  box-shadow: 0 0 25px rgba(200,80,80,0.5);
+#canvas {
+    display: block;
+    background: #000;
 }
 
-/* Fight HUD - style Undertale avec ambiance sombre */
-.fight-hud-top{
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  width:min(90vw,640px);
-  background: linear-gradient(135deg, rgba(15,8,10,0.9), rgba(25,12,15,0.85));
-  padding: 12px 20px;
-  border: 3px solid #5a2a2f;
-  box-shadow: 0 0 20px rgba(200,80,80,0.3), inset 0 0 15px rgba(0,0,0,0.6);
-  font-family: 'Courier New', monospace;
-}
-.fight-hearts{
-  display:flex;gap:6px;
-  color:#ff5a5a;
-  font-weight:700;
-  filter:drop-shadow(0 0 6px rgba(255,90,90,0.6));
-}
-.fight-hearts .heart{
-  font-size:20px;
-  filter:drop-shadow(0 2px 0 #300);
-  text-shadow: 0 0 8px rgba(255,90,90,0.8);
-}
-.fight-boss-bar{
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.boss-bar-label{
-  color: #f4d4d4;
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 2px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
-}
-.boss-bar-container{
-  width: 100%;
-  height: 18px;
-  background: rgba(0,0,0,0.7);
-  border: 2px solid #8a4a4a;
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
-  position: relative;
-}
-.boss-bar-fill{
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #ff5a5a 0%, #ff8a8a 50%, #ff5a5a 100%);
-  box-shadow: 0 0 10px rgba(255,90,90,0.8);
-  transition: width 0.4s ease;
-}
-.fight-timer{
-  color:#f4d4d4;
-  font-weight:bold;
-  text-shadow: 1px 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(200,90,90,0.4);
-  letter-spacing: 1px;
-  white-space: nowrap;
+#ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
 }
 
-/* Animation glitch pour screamer */
-@keyframes screamerGlitch {
-  0%, 100% { transform: translate(0, 0); }
-  10% { transform: translate(-2px, 2px); }
-  20% { transform: translate(2px, -2px); }
-  30% { transform: translate(-2px, -2px); }
-  40% { transform: translate(2px, 2px); }
-  50% { transform: translate(-2px, 0); }
-  60% { transform: translate(2px, 0); }
-  70% { transform: translate(0, -2px); }
-  80% { transform: translate(0, 2px); }
-  90% { transform: translate(-2px, 2px); }
+.hearts-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 3;
+}
+
+.heart {
+    font-size: 30px;
+    transition: all 0.3s;
+}
+
+.heart.filled {
+    opacity: 1;
+    transform: scale(1);
+    filter: grayscale(0);
+}
+
+.heart.empty {
+    opacity: 0.3;
+    transform: scale(0.8);
+    filter: grayscale(1);
+}
+
+.boss-hp-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    text-align: right;
+    z-index: 3;
+}
+
+.boss-name {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px #000;
+}
+
+.boss-hp-bar-bg {
+    width: 200px;
+    height: 30px;
+    background: #333;
+    border: 3px solid #fff;
+    overflow: hidden;
+}
+
+.boss-hp-bar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, #ff0000, #ff4444);
+    transition: width 0.3s ease;
+}
+
+#message {
+    position: absolute;
+    bottom: 20px; /* sous la boîte de combat */
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 12px 22px;
+    border: 3px solid #fff;
+    font-size: 16px;
+    width: 420px;
+    text-align: center;
+    z-index: 3;
+    text-shadow: 0 0 6px rgba(255,255,255,0.2);
+}
+
+#attack-phase {
+    position: absolute;
+    bottom: 80px; /* au-dessus du message */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 420px;
+    pointer-events: all;
+    z-index: 2;
+}
+
+#attack-phase.hidden {
+    display: none;
+}
+
+.attack-bar {
+    position: relative;
+    width: 100%;
+    height: 28px;
+    background: #333;
+    border: 3px solid #fff;
+    overflow: visible;
+}
+
+.attack-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: #ffff00;
+    box-shadow: 0 0 10px #ffff00;
+}
+
+.attack-target {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(255, 0, 0, 0.3);
+    border: 2px solid #ff0000;
+}
+
+.attack-hint {
+    text-align: center;
+    color: #ffff00;
+    font-size: 16px;
+    margin-top: 10px;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+#canvas.shake {
+    animation: shake 0.3s;
+}
+
+/* Effet rm -rf quand on perd une vie */
+.rmrf {
+    position: absolute;
+    left: 20px;
+    top: 60px;
+    font-family: "Courier New", monospace;
+    color: #ff4444;
+    text-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+    animation: riseFade 1.2s ease-out forwards;
+    z-index: 4;
+}
+
+@keyframes riseFade {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-30px); }
 }
