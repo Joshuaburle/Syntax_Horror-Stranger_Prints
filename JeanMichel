@@ -40,6 +40,61 @@ def on_closing():
         pass
     root.bell()  # Fait un son pour l'effet
 
+def _show_screamer_overlay():
+    """Affiche le screamer en overlay pendant 2 secondes avant la fin."""
+    if not HAS_PIL:
+        # Pas de PIL, on passe directement à la fin
+        _open_html_endcard()
+        return
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+    
+    if not os.path.exists(img_path):
+        # Image pas trouvée, on passe directement à la fin
+        _open_html_endcard()
+        return
+    
+    # Créer une fenêtre topmost en plein écran
+    overlay = tk.Toplevel()
+    overlay.attributes('-topmost', True)
+    overlay.configure(bg='black')
+    overlay.overrideredirect(True)  # Pas de bordures
+    
+    # Plein écran
+    screen_w = overlay.winfo_screenwidth()
+    screen_h = overlay.winfo_screenheight()
+    overlay.geometry(f"{screen_w}x{screen_h}+0+0")
+    
+    try:
+        # Charger et redimensionner l'image
+        img = Image.open(img_path)
+        
+        # Calculer la taille pour remplir environ 80% de l'écran
+        target_h = int(screen_h * 0.8)
+        ratio = img.size[0] / img.size[1]
+        target_w = int(target_h * ratio)
+        
+        img_resized = img.resize((target_w, target_h), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img_resized)
+        
+        # Label centré avec fond noir transparent
+        label = tk.Label(overlay, image=photo, bg='black')
+        label.image = photo  # Garder une référence
+        label.place(relx=0.5, rely=0.5, anchor='center')
+        
+        # Fermer après 2 secondes et ouvrir index.html
+        def _close_and_continue():
+            overlay.destroy()
+            _open_html_endcard()
+        
+        overlay.after(2000, _close_and_continue)
+        
+    except Exception as e:
+        print(f"Erreur screamer overlay: {e}")
+        overlay.destroy()
+        _open_html_endcard()
+
 def _open_html_endcard():
     """Ouvre game/index.html via un serveur HTTP local (Unity WebGL)."""
     def _port_in_use(port):
@@ -462,7 +517,7 @@ def show(node_id):
                     global _end_html_opened
                     if not _end_html_opened:
                         _end_html_opened = True
-                        root.after(50, _open_html_endcard)
+                        root.after(50, _show_screamer_overlay)
                     show(nid)
                 cmd = _cmd
             else:
