@@ -17,6 +17,7 @@ def on_closing():
 STORY = {
     "start": {
         "text": """Jean-Michel Pointeur (v1.0)
+         "image": "corner_image.png",
 Bonjour 😊
 Je suis Jean-Michel Pointeur, ton tuteur personnel pour comprendre simplement les pointeurs en C.
 Ensemble, on va voir ce qu'est une adresse, comment lire et modifier une valeur via un pointeur, et adopter de bons réflexes de sécurité. Youpi !
@@ -32,6 +33,7 @@ Appuie sur ENTER pour commencer.""",
 Comment t'appelles-tu ?
 
 Entrez votre nom :""",
+        "input_key": "name",
         "choices": [("Valider", "first_question")]
     },
 
@@ -65,6 +67,7 @@ Que fait l'expression &*p si p est un pointeur valide ?""",
 #PLACEHOLDER VISAGE MECONTENT
     "cas_erreur": {
         "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "image": "corner_image_mecontent.png",
         "choices": [("Recommencer", "first_question")]
     },
 
@@ -73,11 +76,13 @@ Que fait l'expression &*p si p est un pointeur valide ?""",
         "text": """Jean-Michel Pointeur (v1.1)
 Ça suffit les erreurs ! On va tout reprendre depuis le début.
 Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !""",
+        "image": "corner_image_colere.png",
         "choices": [("Recommencer", "third_question")]
     },
 #PLACEHOLDER VISAGE NORMAL
     "strange_question": {
         "text": """Si tu ne pouvais sauver qu'une personne, tu choisirais de sauver :""",
+        "image": "corner_image.png",
         "choices": [
             ("Un(e) ami(e)", "end"),
             ("Un(e) membre de ta famille", "end")
@@ -85,7 +90,8 @@ Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettr
     },
 
     "end": {
-        "text": """Est-ce-que-tu-préfères :""",
+        "text" : """Est-ce-que-tu-préfères :""",
+        "image": "visage_horrible.png",
         "choices": [
             ("Me rejoindre?", "end"),
             ("Ou que je vienne te chercher :)?", "end")
@@ -110,10 +116,62 @@ root.grid_rowconfigure(1, weight=0)     # ligne boutons
 image_frame = tk.Frame(root, bg='black')
 image_frame.grid(row=0, column=0, sticky='nw', padx=10, pady=10)
 
-# Variables globales pour gestion du redimensionnement
-original_image = None
+# Variables globales pour gestion du redimensionnement et cache d'images
+image_cache = {}
 image_label = None
+_current_image_name = None
 _last_img_size = None
+user_name = ""
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+def _load_image(name: str):
+    """Charge une image depuis le dossier images/ ou crée une image de secours si
+    le fichier est introuvable. Retourne une PIL.Image."""
+    if name in image_cache:
+        return image_cache[name]
+
+    if not HAS_PIL:
+        return None
+
+    path = os.path.join(script_dir, "images", name)
+    try:
+        img = Image.open(path).convert("RGBA")
+        image_cache[name] = img
+        return img
+    except Exception:
+        # Crée une image de remplacement simple (fond + texte)
+        try:
+            w = 200
+            h = 200
+            # Choix de couleur selon le nom (quelques heuristiques)
+            if "colere" in name or "enerve" in name:
+                color = (180, 30, 30, 255)
+            elif "horrible" in name or "screameur" in name:
+                color = (40, 10, 40, 255)
+            elif "normal" in name:
+                color = (30, 90, 30, 255)
+            else:
+                color = (60, 60, 60, 255)
+
+            img = Image.new("RGBA", (w, h), color)
+            try:
+                from PIL import ImageDraw, ImageFont
+                draw = ImageDraw.Draw(img)
+                # Texte court au centre (nom sans extension)
+                label = os.path.splitext(name)[0].replace('_', ' ')
+                try:
+                    font = ImageFont.load_default()
+                except Exception:
+                    font = None
+                tw, th = draw.textsize(label, font=font)
+                draw.text(((w - tw) / 2, (h - th) / 2), label, fill=(255,255,255,255), font=font)
+            except Exception:
+                pass
+
+            image_cache[name] = img
+            return img
+        except Exception:
+            return None
 
 def _compute_target_size():
     """Calcule une taille carrée proportionnelle à la fenêtre, bornée min/max."""
@@ -126,12 +184,23 @@ def _compute_target_size():
 
 def _resize_image(event=None):
     global _last_img_size
-    if not (HAS_PIL and original_image and image_label):
+    if not HAS_PIL or not image_label:
         return
     try:
         new_size = _compute_target_size()
         if new_size == _last_img_size:
             return  # évite MAJ inutiles
+
+        # Récupère l'image courante depuis le cache
+        img = None
+        if _current_image_name:
+            img = image_cache.get(_current_image_name) or _load_image(_current_image_name)
+        # fallback sur corner_image
+        if img is None:
+            img = image_cache.get('corner_image.png') or _load_image('corner_image.png')
+
+        if img is None:
+            return
 
         # Compatibilité Pillow pour le resampling
         try:
@@ -139,7 +208,7 @@ def _resize_image(event=None):
         except AttributeError:
             resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
 
-        resized = original_image.resize((new_size, new_size), resample=resample_algo)
+        resized = img.resize((new_size, new_size), resample=resample_algo)
         photo = ImageTk.PhotoImage(resized)
         image_label.configure(image=photo)
         image_label.image = photo  # garder référence
@@ -152,20 +221,21 @@ def _resize_image(event=None):
 # Chargement et affichage de l'image
 if HAS_PIL:
     try:
-        # Chemin absolu de l'image (dans le dossier images à côté du script)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "images", "corner_image.png")
+        # Charge l'image "coin" par défaut dans le cache
+        _load_image('corner_image.png')
 
-        # Charger l'image originale
-        original_image = Image.open(image_path)
-
-        # Création initiale avec une taille par défaut (sera ajustée ensuite)
-        try:
-            resample_algo = Image.Resampling.LANCZOS
-        except AttributeError:
-            resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
-        initial = original_image.resize((100, 100), resample=resample_algo)
-        photo = ImageTk.PhotoImage(initial)
+        # Création initiale du Label d'image (sera mis à jour dynamiquement)
+        # Utilise une image neutre pour commencer
+        init_img = image_cache.get('corner_image.png')
+        if init_img is not None:
+            try:
+                resample_algo = Image.Resampling.LANCZOS
+            except AttributeError:
+                resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
+            initial = init_img.resize((100, 100), resample=resample_algo)
+            photo = ImageTk.PhotoImage(initial)
+        else:
+            photo = None
 
         image_label = tk.Label(
             image_frame,
@@ -173,7 +243,8 @@ if HAS_PIL:
             bg='black',
             bd=0
         )
-        image_label.image = photo
+        if photo is not None:
+            image_label.image = photo
         image_label.pack()
 
         # Lier l'événement de redimensionnement et forcer une première adaptation
@@ -182,7 +253,6 @@ if HAS_PIL:
 
     except Exception as e:
         print(f"Erreur de chargement de l'image: {e}")
-        print(f"Chemin testé: {locals().get('image_path', 'inconnu')}")
         placeholder = tk.Label(
             image_frame,
             text="[×]",
@@ -253,28 +323,80 @@ root.bind('<Return>', on_key_enter)
 root.bind('<KP_Enter>', on_key_enter)
 root.bind('<space>', on_key_enter)
 
+
 def show(node_id):
     global button_list
     node = STORY[node_id]
+    # Gérer l'image associée au nœud (si présent)
+    img_name = node.get("image")
+    global _current_image_name, _last_img_size
+    if img_name:
+        _current_image_name = img_name
+        # (re)charger si nécessaire
+        if HAS_PIL:
+            _load_image(img_name)
+    else:
+        # pas d'image spécifique -> garder l'image par défaut
+        _current_image_name = 'corner_image.png'
 
     # Mettre à jour le texte dans la zone scrollable
     text_area.configure(state='normal')
     text_area.delete('1.0', 'end')
-    text_area.insert('1.0', node["text"])
+    # Permet d'utiliser {name} dans les textes si user_name est défini
+    try:
+        formatted = node["text"].format(name=user_name)
+    except Exception:
+        formatted = node["text"]
+    text_area.insert('1.0', formatted)
     text_area.configure(state='disabled')
     text_area.yview_moveto(0)  # remonter en haut
 
-    # Recréer les boutons
+    # Recréer les widgets dans btn_frame
     for w in btn_frame.winfo_children():
         w.destroy()
     button_list = []
 
+    # Si le nœud demande une entrée (ex: prénom), on ajoute un Entry
+    input_key = node.get("input_key")
+    entry_var = None
+    entry_widget = None
+    if input_key:
+        entry_var = tk.StringVar()
+        entry_widget = tk.Entry(
+            btn_frame,
+            textvariable=entry_var,
+            bg='black',
+            fg='#00ff00',
+            insertbackground='#00ff00',
+            font=('Courier', 11),
+            relief='flat',
+            borderwidth=1,
+            width=30,
+        )
+        entry_widget.grid(row=0, column=0, columnspan=4, padx=6, pady=(4, 6), sticky='w')
+
     if node["choices"]:
         for idx, (label, next_id) in enumerate(node["choices"]):
+            # Si on a un input_key, le bouton Valider doit récupérer la valeur
+            if input_key:
+                def _on_validate(nid=next_id, var=entry_var):
+                    global user_name
+                    val = (var.get() if var else "").strip()
+                    if not val:
+                        root.bell()
+                        return
+                    user_name = val
+                    # afficher un petit retour dans la zone de texte si besoin
+                    show(nid)
+
+                cmd = _on_validate
+            else:
+                cmd = partial(show, next_id)
+
             btn = tk.Button(
                 btn_frame,
                 text=f"> {label}",
-                command=partial(show, next_id),
+                command=cmd,
                 bg='black',
                 fg='#00ff00',
                 activebackground='#003300',
@@ -290,10 +412,15 @@ def show(node_id):
                 padx=10,
                 pady=6,
             )
-            btn.grid(row=0, column=idx, padx=6)
+            # Si on a un entry, placer les boutons sur la ligne suivante
+            grid_row = 1 if input_key else 0
+            btn.grid(row=grid_row, column=idx, padx=6)
             button_list.append(btn)
-        # Focus sur le premier bouton
-        root.after(0, lambda: focus_button(0))
+        # Focus sur le premier widget (entry si présent, sinon 1er bouton)
+        if entry_widget:
+            root.after(0, lambda: entry_widget.focus_set())
+        else:
+            root.after(0, lambda: focus_button(0))
     else:
         btn = tk.Button(
             btn_frame,
