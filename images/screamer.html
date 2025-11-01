@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Générateur Screamer</title>
+</head>
+<body>
+<canvas id="c" width="800" height="600"></canvas>
+<script>
+// Génère une image de screamer horrifiant style "The Boiled One" avec visage de prof
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// Fond noir avec bruit
+ctx.fillStyle = '#000';
+ctx.fillRect(0, 0, 800, 600);
+
+// Bruit rougeâtre
+const imgData = ctx.getImageData(0, 0, 800, 600);
+for(let i = 0; i < imgData.data.length; i += 4) {
+  const noise = Math.random() * 40;
+  imgData.data[i] = noise * 2; // R
+  imgData.data[i+1] = noise * 0.3; // G
+  imgData.data[i+2] = noise * 0.3; // B
+  imgData.data[i+3] = 255;
+}
+ctx.putImageData(imgData, 0, 0);
+
+// Visage déformé au centre (style The Boiled One)
+ctx.save();
+ctx.translate(400, 300);
+
+// Tête déformée
+ctx.fillStyle = '#1a0f0f';
+ctx.beginPath();
+ctx.ellipse(0, 0, 140, 180, 0, 0, Math.PI * 2);
+ctx.fill();
+
+// Ombres sinistres
+ctx.fillStyle = 'rgba(0,0,0,0.7)';
+ctx.beginPath();
+ctx.ellipse(-40, -20, 50, 60, 0, 0, Math.PI * 2);
+ctx.fill();
+ctx.beginPath();
+ctx.ellipse(40, -20, 50, 60, 0, 0, Math.PI * 2);
+ctx.fill();
+
+// Yeux blancs fixes (style The Boiled One)
+ctx.fillStyle = '#ffffff';
+ctx.beginPath();
+ctx.ellipse(-45, -15, 28, 35, 0, 0, Math.PI * 2);
+ctx.fill();
+ctx.beginPath();
+ctx.ellipse(45, -15, 28, 35, 0, 0, Math.PI * 2);
+ctx.fill();
+
+// Pupilles noires fixes qui regardent
+ctx.fillStyle = '#000';
+ctx.beginPath();
+ctx.arc(-45, -10, 12, 0, Math.PI * 2);
+ctx.fill();
+ctx.beginPath();
+ctx.arc(45, -10, 12, 0, Math.PI * 2);
+ctx.fill();
+
+// Bouche horrifiante béante
+ctx.fillStyle = '#000';
+ctx.beginPath();
+ctx.ellipse(0, 60, 55, 45, 0, 0, Math.PI * 2);
+ctx.fill();
+
+// Dents irrégulières
+ctx.fillStyle = '#d4d4d4';
+for(let i = 0; i < 8; i++) {
+  const x = -40 + i * 12;
+  ctx.fillRect(x, 35, 8, 20);
+  ctx.fillRect(x, 75, 8, 15);
+}
+
+// Texte glichté "JEAN MICHEL" ou message cryptique
+ctx.fillStyle = '#ff2222';
+ctx.font = 'bold 48px monospace';
+ctx.textAlign = 'center';
+ctx.shadowColor = '#ff0000';
+ctx.shadowBlur = 20;
+
+// Effet glitch sur le texte
+for(let i = 0; i < 3; i++) {
+  const offset = (Math.random() - 0.5) * 8;
+  ctx.fillText('JEAN MICHEL', offset, 200);
+}
+
+ctx.restore();
+
+// Vignette rouge intense
+const grad = ctx.createRadialGradient(400, 300, 100, 400, 300, 500);
+grad.addColorStop(0, 'rgba(0,0,0,0)');
+grad.addColorStop(1, 'rgba(80,0,0,0.8)');
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, 800, 600);
+
+// Télécharger l'image
+setTimeout(() => {
+  const link = document.createElement('a');
+  link.download = 'screamer.png';
+  link.href = canvas.toDataURL();
+  link.click();
+}, 500);
+</script>
+</body>
+</html>
