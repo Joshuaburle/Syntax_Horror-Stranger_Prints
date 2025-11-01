@@ -64,12 +64,18 @@ def _show_screamer_overlay():
         except Exception:
             pass
 
+        # Plein écran fiable
+        overlay.update_idletasks()
+        try:
+            overlay.attributes('-fullscreen', True)
+        except Exception:
+            pass
         sw = overlay.winfo_screenwidth()
         sh = overlay.winfo_screenheight()
         overlay.geometry(f"{sw}x{sh}+0+0")
 
         # Charger et adapter l'image (80% hauteur écran)
-        img = Image.open(img_path)
+    img = Image.open(img_path)
         target_h = int(sh * 0.8)
         ratio = img.size[0] / img.size[1]
         target_w = int(target_h * ratio)
@@ -89,7 +95,10 @@ def _show_screamer_overlay():
 
         overlay.after(2000, _close_then_open)
     except Exception as e:
-        print(f"Erreur screamer overlay: {e}")
+        try:
+            print(f"Erreur screamer overlay: {e}")
+        except Exception:
+            pass
         _open_html_endcard()
 
 def _open_html_endcard():
