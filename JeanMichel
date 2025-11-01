@@ -9,6 +9,7 @@ import shutil
 import threading
 import socket
 import http.server
+import time
 import socketserver
 import mimetypes
 
@@ -222,23 +223,52 @@ def _open_html_endcard():
         return
     
     mimetypes.add_type('application/wasm', '.wasm')
-    
+
     if not _port_in_use(SERVER_PORT):
         try:
             _start_server(game_dir)
         except Exception as e:
             print(f"Erreur serveur HTTP: {e}")
-    
-    url = f"http://localhost:{SERVER_PORT}/index.html"
-    
+    # Attendre (jusqu'à ~2s) que le serveur écoute, pour éviter les courses
+    for _ in range(40):
+        if _port_in_use(SERVER_PORT):
+            break
+        try:
+            time.sleep(0.05)
+        except Exception:
+            pass
+
+    # Ajout d'un cache-buster et IP explicite pour WSL
+    url = f"http://127.0.0.1:{SERVER_PORT}/index.html?t={int(time.time())}"
+
     # Ouvrir selon l'environnement
     for cmd in ['wslview', 'xdg-open']:
-        if shutil.which(cmd):
-            subprocess.Popen([cmd, url])
+        try:
+            if shutil.which(cmd):
+                subprocess.Popen([cmd, url])
+                root.after(200, root.destroy)
+                return
+        except Exception:
+            pass
+
+    # Fallback Windows depuis WSL
+    try:
+        if shutil.which('powershell.exe'):
+            subprocess.Popen(['powershell.exe', '-NoProfile', '-Command', f'Start-Process "{url}"'])
             root.after(200, root.destroy)
             return
-    
-    webbrowser.open(url, new=2)
+        if shutil.which('cmd.exe'):
+            subprocess.Popen(['cmd.exe', '/C', 'start', '', url])
+            root.after(200, root.destroy)
+            return
+    except Exception:
+        pass
+
+    # Dernier recours
+    try:
+        webbrowser.open(url, new=2)
+    except Exception as e:
+        print(f"Impossible d'ouvrir le navigateur: {e}")
     root.after(200, root.destroy)
 
 STORY = {
