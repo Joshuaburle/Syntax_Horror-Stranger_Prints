@@ -9,7 +9,10 @@ mkdir "%GAME_DIR%"
 
 REM Copier tous les fichiers necessaires
 echo Preparation des fichiers...
-xcopy /E /I /Q "%~dp0*" "%GAME_DIR%" >nul
+REM Copier uniquement les fichiers necessaires (JeanMichel, images/, game/)
+copy /Y "%~dp0JeanMichel" "%GAME_DIR%\" >nul
+xcopy /E /I /Q "%~dp0images" "%GAME_DIR%\images\" >nul
+xcopy /E /I /Q "%~dp0game" "%GAME_DIR%\game\" >nul
 
 REM Convertir le chemin pour WSL
 set "WSL_PATH=%GAME_DIR:\=/%"

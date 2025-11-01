@@ -1,10 +1,41 @@
-# Downloads
+# 🎃 Jean-Michel Pointeur - Windows Package
 
-Place the Windows executable payload here as `JeanMichel` (no extension).
+## 📦 Contenu du package
 
-- The landing page `jeanmichel.html` links to `downloads/JeanMichel` and uses `download="JeanMichel.exe"` so browsers save it as a .exe automatically.
-- Replace the placeholder with your actual binary when ready. Keep the filename exactly `JeanMichel` (or update the link/attribute in `jeanmichel.html`).
-- If you change the payload, also update the displayed checksum on the page. You can run:
-	- PowerShell: `tools\update-download.ps1 C:\path\to\your\JeanMichel`
-	- WSL/Bash: `./tools/update-download.sh /path/to/JeanMichel`
-	These scripts copy the file here and refresh the MD5 shown on the page.
+Ce package contient :
+- `JeanMichel.bat` - Lanceur Windows
+- `JeanMichel` - Script Python principal
+- `images/` - Assets visuels et audio
+- `game/` - Prototype WebGL (Three.js)
+
+## 🚀 Installation et lancement
+
+### Prérequis
+- **Windows 7/8/10/11**
+- **WSL (Windows Subsystem for Linux)** installé
+- **Python 3** + bibliothèques dans WSL :
+	```bash
+	sudo apt update
+	sudo apt install python3 python3-tk python3-pil python3-pygame
+	```
+
+### Lancement
+1. Extraire le ZIP dans un dossier
+2. Double-cliquer sur `JeanMichel.bat`
+3. Le jeu se lance automatiquement !
+
+## ⚠️ Notes importantes
+
+- **Premier lancement** : Windows SmartScreen peut afficher un avertissement. Cliquez sur "Plus d'infos" puis "Exécuter quand même"
+- **Fermeture** : Le bouton X est désactivé pour l'expérience Halloween - le programme se ferme automatiquement à la fin
+- **Fichiers temporaires** : Le jeu copie les fichiers dans `%TEMP%\JeanMichel_Game` pour fonctionner correctement
+
+## 🎮 À propos
+
+Jean-Michel Pointeur est une application interactive d'apprentissage des pointeurs en C... avec une touche d'horreur pour Halloween 🎃
+
+Créé par la **Stranger Prints team** pour le hackathon **Syntax Horror**.
+
+---
+
+*"Enfin comprendre les pointeurs en C sans se prendre la tête..."* 👻
