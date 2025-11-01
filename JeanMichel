@@ -30,18 +30,32 @@ IMAGE_SIZE_BOUNDS = (80, 350)    # (min, max)
 SERVER_PORT = 8000
 
 def on_closing():
-    # Empêche la fermeture et affiche un message dans la zone de texte
-    try:
-        text_area.configure(state='normal')
-        text_area.delete('1.0', 'end')
-        text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
-        text_area.configure(state='disabled')
-    except Exception:
-        pass
-    root.bell()  # Fait un son pour l'effet
+    """Affiche un message puis déclenche un screamer SANS fermer la fenêtre."""
+    global _closing_overlay_shown
+    if not '_closing_overlay_shown' in globals():
+        _closing_overlay_shown = False
+    if not _closing_overlay_shown:
+        _closing_overlay_shown = True
+        try:
+            text_area.configure(state='normal')
+            text_area.delete('1.0', 'end')
+            text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
+            text_area.configure(state='disabled')
+        except Exception:
+            pass
+        root.bell()  # Fait un son pour l'effet
+        # Screamer SANS fermeture - pour l'effet Halloween
+        try:
+            _show_screamer_overlay(open_endcard=False)  # Ne pas ouvrir l'endcard après le screamer
+        except Exception:
+            pass
+    # Ne jamais fermer la fenêtre - effet piégé pour Halloween
+    pass
 
-def _show_screamer_overlay():
-    """Affiche le screamer animé (GIF) + audio en overlay avant la fin."""
+def _show_screamer_overlay(open_endcard: bool = True):
+    """Affiche le screamer animé (GIF) + audio en overlay.
+    open_endcard: si True, ouvre la page web à la fin; sinon, se contente de fermer l'overlay.
+    """
     if not HAS_PIL:
         _open_html_endcard()
         return
@@ -126,7 +140,8 @@ def _show_screamer_overlay():
                 except Exception:
                     pass
             overlay.destroy()
-            _open_html_endcard()
+            if open_endcard:
+                _open_html_endcard()
         
         # Fonction pour démarrer l'audio ET l'animation en même temps
         def start_screamer():
@@ -145,7 +160,8 @@ def _show_screamer_overlay():
     except Exception as e:
         print(f"Erreur screamer animé: {e}")
         overlay.destroy()
-        _open_html_endcard()
+        if open_endcard:
+            _open_html_endcard()
 
 def _show_screamer_static(img_path):
     """Fallback: affiche l'image fixe si le GIF n'est pas dispo."""
@@ -598,7 +614,8 @@ def show(node_id):
                     global _end_html_opened
                     if not _end_html_opened:
                         _end_html_opened = True
-                        root.after(50, _show_screamer_overlay)
+                        # Appel direct pour garantir l'affichage du screamer
+                        _show_screamer_overlay()
                     show(nid)
                 cmd = _cmd
             else:
@@ -614,6 +631,8 @@ def show(node_id):
         btn.grid(row=0, column=0, padx=6)
         button_list = [btn]
         root.after(0, lambda: focus_button(0))
+
+    # Ne pas déclencher automatiquement ici: le screamer doit se lancer après l'action (clic)
 
 # Démarrer avec la première scène
 show("start")

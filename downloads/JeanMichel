@@ -1,0 +1,705 @@
+#!/usr/bin/env python3
+
+import tkinter as tk
+from functools import partial
+import os
+import webbrowser
+import subprocess
+import shutil
+import threading
+import socket
+import http.server
+import socketserver
+import mimetypes
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+# === CONSTANTES ===
+TERMINAL_BG = 'black'
+TERMINAL_FG = '#00ff00'
+TERMINAL_ACTIVE_BG = '#003300'
+TERMINAL_HIGHLIGHT_BG = '#004400'
+TERMINAL_FONT = ('Courier', 11)
+TERMINAL_FONT_LARGE = ('Courier', 12)
+IMAGE_SIZE_RATIO = (0.20, 0.30)  # (largeur%, hauteur%)
+IMAGE_SIZE_BOUNDS = (80, 350)    # (min, max)
+SERVER_PORT = 8000
+
+def on_closing():
+    """Affiche un message puis déclenche un screamer avant de fermer."""
+    global _closing_overlay_shown
+    if not '_closing_overlay_shown' in globals():
+        _closing_overlay_shown = False
+    if not _closing_overlay_shown:
+        _closing_overlay_shown = True
+        try:
+            text_area.configure(state='normal')
+            text_area.delete('1.0', 'end')
+            text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
+            text_area.configure(state='disabled')
+        except Exception:
+            pass
+        root.bell()  # Fait un son pour l'effet
+        # Screamer puis fermeture
+        try:
+            _show_screamer_overlay(on_done=root.destroy)
+        except Exception:
+            root.after(200, root.destroy)
+    else:
+        # Déjà en cours, ignorer
+        pass
+
+def _show_screamer_overlay(on_done=None):
+    """Affiche l'image screamer en overlay plein écran pendant 2s.
+    Si on_done est None, ouvre l'endcard à la fin, sinon exécute on_done.
+    """
+    if on_done is None:
+        on_done = _open_html_endcard
+    if not HAS_PIL:
+        on_done()
+        return
+
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+        if not os.path.exists(img_path):
+            on_done()
+            return
+
+        # Fenêtre overlay au-dessus de tout, bordures masquées
+        overlay = tk.Toplevel(root)
+        overlay.attributes('-topmost', True)
+        overlay.overrideredirect(True)
+        overlay.configure(bg='black')
+        try:
+            overlay.lift()
+            overlay.focus_force()
+        except Exception:
+            pass
+
+        # Plein écran fiable
+        overlay.update_idletasks()
+        try:
+            overlay.attributes('-fullscreen', True)
+        except Exception:
+            pass
+        sw = overlay.winfo_screenwidth()
+        sh = overlay.winfo_screenheight()
+        overlay.geometry(f"{sw}x{sh}+0+0")
+
+        # Charger et adapter l'image (80% hauteur écran)
+        img = Image.open(img_path)
+        target_h = int(sh * 0.8)
+        ratio = img.size[0] / img.size[1]
+        target_w = int(target_h * ratio)
+        img = img.resize((target_w, target_h), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+
+        lbl = tk.Label(overlay, image=photo, bg='black')
+        lbl.image = photo  # empêcher le GC
+        lbl.place(relx=0.5, rely=0.5, anchor='center')
+
+        def _close_then_open():
+            try:
+                overlay.destroy()
+            except Exception:
+                pass
+            on_done()
+
+        overlay.after(2000, _close_then_open)
+    except Exception as e:
+        try:
+            print(f"Erreur screamer overlay: {e}")
+        except Exception:
+            pass
+        on_done()
+
+def _show_screamer_overlay():
+    """Affiche le screamer animé (GIF) + audio en overlay avant la fin."""
+    if not HAS_PIL:
+        _open_html_endcard()
+        return
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    gif_path = os.path.join(script_dir, 'images', 'screamer_animated_transparent.gif')
+    audio_path = os.path.join(script_dir, 'images', 'screamer_audio.mp3')
+    
+    if not os.path.exists(gif_path):
+        # Fallback sur image fixe
+        img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+        if os.path.exists(img_path):
+            _show_screamer_static(img_path)
+        else:
+            _open_html_endcard()
+        return
+    
+    # Créer fenêtre overlay plein écran NOIRE (préchargement)
+    overlay = tk.Toplevel()
+    overlay.attributes('-topmost', True)
+    overlay.configure(bg='black')
+    overlay.overrideredirect(True)
+    
+    screen_w = overlay.winfo_screenwidth()
+    screen_h = overlay.winfo_screenheight()
+    overlay.geometry(f"{screen_w}x{screen_h}+0+0")
+    
+    # Label noir vide pendant le chargement
+    label = tk.Label(overlay, bg='black')
+    label.place(relx=0.5, rely=0.5, anchor='center')
+    
+    # Forcer l'affichage immédiat de l'écran noir
+    overlay.update()
+    
+    try:
+        # PRÉCHARGER le GIF et les frames AVANT de jouer l'audio
+        gif = Image.open(gif_path)
+        target_h = int(screen_h * 0.8)
+        
+        # Extraire et redimensionner toutes les frames
+        frames = []
+        try:
+            while True:
+                frame = gif.copy().convert('RGBA')
+                ratio = frame.size[0] / frame.size[1]
+                target_w = int(target_h * ratio)
+                frame_resized = frame.resize((target_w, target_h), Image.LANCZOS)
+                frames.append(ImageTk.PhotoImage(frame_resized))
+                gif.seek(gif.tell() + 1)
+        except EOFError:
+            pass
+        
+        if not frames:
+            raise Exception("No frames in GIF")
+        
+        # MAINTENANT que tout est chargé, initialiser l'audio (sans jouer)
+        audio_ready = False
+        try:
+            import pygame
+            pygame.mixer.init()
+            if os.path.exists(audio_path):
+                pygame.mixer.music.load(audio_path)
+                audio_ready = True
+        except Exception as e:
+            print(f"Audio error: {e}")
+        
+        # Variables d'animation
+        frame_idx = [0]
+        animation_active = [True]
+        
+        def animate():
+            if animation_active[0] and frames:
+                label.config(image=frames[frame_idx[0]])
+                frame_idx[0] = (frame_idx[0] + 1) % len(frames)
+                overlay.after(66, animate)  # ~15fps
+        
+        def stop_and_continue():
+            animation_active[0] = False
+            if audio_ready:
+                try:
+                    pygame.mixer.music.stop()
+                except Exception:
+                    pass
+            overlay.destroy()
+            _open_html_endcard()
+        
+        # Fonction pour démarrer l'audio ET l'animation en même temps
+        def start_screamer():
+            if audio_ready:
+                try:
+                    pygame.mixer.music.play()
+                except Exception:
+                    pass
+            animate()
+            # Fermer après durée de la vidéo (~7 secondes)
+            overlay.after(7000, stop_and_continue)
+        
+        # Attendre 100ms (écran noir visible) puis démarrer TOUT synchronisé
+        overlay.after(100, start_screamer)
+        
+    except Exception as e:
+        print(f"Erreur screamer animé: {e}")
+        overlay.destroy()
+        _open_html_endcard()
+
+def _show_screamer_static(img_path):
+    """Fallback: affiche l'image fixe si le GIF n'est pas dispo."""
+    overlay = tk.Toplevel()
+    overlay.attributes('-topmost', True)
+    overlay.configure(bg='black')
+    overlay.overrideredirect(True)
+    
+    screen_w = overlay.winfo_screenwidth()
+    screen_h = overlay.winfo_screenheight()
+    overlay.geometry(f"{screen_w}x{screen_h}+0+0")
+    
+    try:
+        img = Image.open(img_path)
+        target_h = int(screen_h * 0.8)
+        ratio = img.size[0] / img.size[1]
+        target_w = int(target_h * ratio)
+        img_resized = img.resize((target_w, target_h), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img_resized)
+        
+        label = tk.Label(overlay, image=photo, bg='black')
+        label.image = photo
+        label.place(relx=0.5, rely=0.5, anchor='center')
+        
+        overlay.after(2000, lambda: (overlay.destroy(), _open_html_endcard()))
+    except Exception as e:
+        print(f"Erreur image fixe: {e}")
+        overlay.destroy()
+        _open_html_endcard()
+
+def _open_html_endcard():
+    """Ouvre game/index.html via un serveur HTTP local (Unity WebGL)."""
+    def _port_in_use(port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.25)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+
+    def _start_server(game_dir):
+        try:
+            from functools import partial as _partial
+            Handler = _partial(http.server.SimpleHTTPRequestHandler, directory=game_dir)
+        except TypeError:
+            cwd = os.getcwd()
+            os.chdir(game_dir)
+            Handler = http.server.SimpleHTTPRequestHandler
+        
+        class ReusableTCPServer(socketserver.TCPServer):
+            allow_reuse_address = True
+        
+        httpd = ReusableTCPServer(("", SERVER_PORT), Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    game_dir = os.path.join(script_dir, 'game')
+    
+    if not os.path.exists(os.path.join(game_dir, 'index.html')):
+        print("Erreur: 'game/index.html' introuvable.")
+        return
+    
+    mimetypes.add_type('application/wasm', '.wasm')
+    
+    if not _port_in_use(SERVER_PORT):
+        try:
+            _start_server(game_dir)
+        except Exception as e:
+            print(f"Erreur serveur HTTP: {e}")
+    
+    url = f"http://localhost:{SERVER_PORT}/index.html"
+    
+    # Ouvrir selon l'environnement
+    for cmd in ['wslview', 'xdg-open']:
+        if shutil.which(cmd):
+            subprocess.Popen([cmd, url])
+            root.after(200, root.destroy)
+            return
+    
+    webbrowser.open(url, new=2)
+    root.after(200, root.destroy)
+
+STORY = {
+    "start": {
+        "text": """Jean-Michel Pointeur (v1.0)
+Bonjour 😊
+Je suis Jean-Michel Pointeur, ton tuteur personnel pour comprendre simplement les pointeurs en C.
+Ensemble, on va voir ce qu'est une adresse, comment lire et modifier une valeur via un pointeur, et adopter de bons réflexes de sécurité. Youpi !
+
+Prends ton temps, réponds à ton rythme : je t'explique tout pas à pas.
+
+Appuie sur ENTER pour commencer.""",
+        "choices": [("Commencer", "enter_name")],
+        "image": "normal.png"
+    },
+
+    "enter_name": {
+        "text": """Bienvenue dans cette aventure interactive !
+Comment t'appelles-tu ?
+
+Entrez votre nom :""",
+        "choices": [("Valider", "first_question")],
+        "image": "normal.png",
+        "input_key": "name"
+    },
+
+    "first_question": {
+        "text": """L'adresse de variable, operateur&   
+Une variable en C a une adresse en mémoire. Pour obtenir cette adresse, on utilise l'opérateur &.
+Selon toi que represente &n ?""",
+        "choices": [
+            ("L'adresse de la variable n", "second_question"),
+            ("La valeur de la variable n", "cas_erreur_q1")
+        ]
+        ,"image": "normal.png"
+    },
+
+    "second_question": {
+        "text": """Déréferencer un pointeur, c'est accéder à la valeur stockée à l'adresse pointée. On utilise l'opérateur * pour cela.
+Que fait l'expression *p si p est un pointeur vers un entier ?""",
+        "choices": [
+            ("Accède à la valeur entière pointée par p", "third_question"),
+            ("Accède à l'adresse de p", "cas_erreur_q2")
+        ]
+        ,"image": "normal.png"
+    },
+
+    "third_question": {
+        "text": """Q3 — Comprendre l'envers.
+Que fait l'expression &*p si p est un pointeur valide ?""",
+        "choices": [
+            ("Retourne la valeur stockée à l'adresse de p", "cas_erreur_q3"),
+            ("Retourne l'adresse pointée par p", "strange_question")
+        ]
+        ,"image": "normal.png"
+    },
+    "cas_erreur_q1": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "first_question")],
+        "image": "mecontent.png"
+    },
+    "cas_erreur_q2": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "second_question")],
+        "image": "mecontent.png"
+    },
+    "cas_erreur_q3": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "third_question")],
+        "image": "mecontent.png"
+    },
+    "jean_michel_enerve": {
+        "text": """Jean-Michel Pointeur (v1.1)
+Ça suffit les erreurs ! On va tout reprendre depuis le début.
+Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !""",
+        "choices": [("Recommencer", "third_question")],
+        "image": "colere.png"
+    },
+    "strange_question": {
+        "text": """Si tu ne pouvais sauver qu'une personne, tu choisirais de sauver :""",
+        "choices": [
+            ("Un(e) ami(e)", "end"),
+            ("Un(e) membre de ta famille", "end")
+        ]
+        ,"image": "big_mouth.png"
+    },
+
+    "end": {
+        "text": """Est-ce-que-tu-préfères :""",
+        "choices": [
+            ("Me rejoindre?", "end"),
+            ("Ou que je vienne te chercher :)?", "end")
+        ]
+        ,"image": "screamer.png"
+    }
+    }
+
+root = tk.Tk()
+root.title("Terminal")
+root.geometry("960x600")
+root.configure(bg='black')
+root.protocol("WM_DELETE_WINDOW", on_closing)  # Intercepte la croix
+
+# Layout principal en grille (responsive)
+root.grid_columnconfigure(0, weight=0)  # colonne image
+root.grid_columnconfigure(1, weight=1)  # colonne texte/boutons
+root.grid_rowconfigure(0, weight=1)     # ligne texte
+root.grid_rowconfigure(1, weight=0)     # ligne boutons
+
+# Frame pour l'image (coin haut-gauche)
+image_frame = tk.Frame(root, bg='black')
+image_frame.grid(row=0, column=0, sticky='nw', padx=10, pady=10)
+
+
+# Gestion image dynamique et cache
+image_cache = {}
+image_label = None
+_current_image_name = None
+_last_img_size = None
+user_name = ""
+has_previous_errors = False  # Pour traquer les erreurs aux questions 1 et 2
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+def _load_image(name: str):
+    """Charge une image depuis le dossier images/ ou crée une image de secours si
+    le fichier est introuvable. Retourne une PIL.Image."""
+    if name in image_cache:
+        return image_cache[name]
+    if not HAS_PIL:
+        return None
+    path = os.path.join(script_dir, "images", name)
+    try:
+        img = Image.open(path).convert("RGBA")
+        image_cache[name] = img
+        return img
+    except Exception:
+        # Crée une image de remplacement simple (fond + texte)
+        try:
+            w = 200
+            h = 200
+            if "colere" in name or "enerve" in name:
+                color = (180, 30, 30, 255)
+            elif "horrible" in name or "screameur" in name:
+                color = (40, 10, 40, 255)
+            elif "normal" in name:
+                color = (30, 90, 30, 255)
+            else:
+                color = (60, 60, 60, 255)
+            img = Image.new("RGBA", (w, h), color)
+            try:
+                from PIL import ImageDraw, ImageFont
+                draw = ImageDraw.Draw(img)
+                label = os.path.splitext(name)[0].replace('_', ' ')
+                try:
+                    font = ImageFont.load_default()
+                except Exception:
+                    font = None
+                tw, th = draw.textsize(label, font=font)
+                draw.text(((w - tw) / 2, (h - th) / 2), label, fill=(255,255,255,255), font=font)
+            except Exception:
+                pass
+            image_cache[name] = img
+            return img
+        except Exception:
+            return None
+
+def _compute_target_size():
+    """Calcule une taille proportionnelle à la fenêtre, bornée min/max."""
+    ww, wh = max(1, root.winfo_width()), max(1, root.winfo_height())
+    target = int(min(ww * IMAGE_SIZE_RATIO[0], wh * IMAGE_SIZE_RATIO[1]))
+    return max(IMAGE_SIZE_BOUNDS[0], min(IMAGE_SIZE_BOUNDS[1], target))
+
+def _resize_image(event=None):
+    """Redimensionne l'image en gardant le ratio d'aspect."""
+    global _last_img_size
+    if not (HAS_PIL and image_label):
+        return
+    
+    target_height = _compute_target_size()
+    if target_height == _last_img_size:
+        return
+    
+    # Récupérer l'image depuis le cache
+    img = (_current_image_name and (image_cache.get(_current_image_name) or _load_image(_current_image_name))) \
+          or image_cache.get('normal.png') or _load_image('normal.png')
+    if not img:
+        return
+    
+    # Redimensionner en gardant le ratio
+    aspect_ratio = img.size[0] / img.size[1]
+    new_size = (int(target_height * aspect_ratio), target_height)
+    
+    try:
+        resample = Image.Resampling.LANCZOS
+    except AttributeError:
+        resample = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
+    
+    try:
+        resized = img.resize(new_size, resample=resample)
+        photo = ImageTk.PhotoImage(resized)
+        image_label.configure(image=photo)
+        image_label.image = photo
+        _last_img_size = target_height
+        image_frame.lift()
+    except Exception as e:
+        print(f"Erreur redimensionnement: {e}")
+
+# Chargement et affichage de l'image
+if HAS_PIL:
+    try:
+        _load_image('normal.png')
+        init_img = image_cache.get('normal.png')
+        if init_img is not None:
+            try:
+                resample_algo = Image.Resampling.LANCZOS
+            except AttributeError:
+                resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
+            initial = init_img.resize((100, 100), resample=resample_algo)
+            photo = ImageTk.PhotoImage(initial)
+        else:
+            photo = None
+        image_label = tk.Label(
+            image_frame,
+            image=photo,
+            bg='black',
+            bd=0
+        )
+        image_label.image = photo
+        image_label.pack()
+        root.bind('<Configure>', _resize_image)
+        root.after(0, _resize_image)
+    except Exception as e:
+        print(f"Erreur de chargement de l'image: {e}")
+        print(f"Chemin testé: {locals().get('image_path', 'inconnu')}" )
+        placeholder = tk.Label(
+            image_frame,
+            text="[×]",
+            bg='black',
+            fg='#00ff00',
+            font=('Courier', 14)
+        )
+        placeholder.pack()
+else:
+    print("PIL non installé - fonctionnement sans images")
+
+# Zone de texte avec scrollbar (style terminal)
+text_scroll = tk.Scrollbar(root, orient='vertical')
+text_area = tk.Text(
+    root, wrap='word', padx=20, pady=20,
+    bg=TERMINAL_BG, fg=TERMINAL_FG, insertbackground=TERMINAL_FG,
+    font=TERMINAL_FONT_LARGE, borderwidth=0, highlightthickness=0
+)
+text_area.configure(yscrollcommand=text_scroll.set)
+text_scroll.configure(command=text_area.yview)
+text_area.grid(row=0, column=1, sticky='nsew')
+text_scroll.grid(row=0, column=2, sticky='ns')
+
+# Frame pour les boutons (en bas, responsive)
+btn_frame = tk.Frame(root, bg=TERMINAL_BG)
+btn_frame.grid(row=1, column=1, columnspan=2, sticky='ew', pady=(6, 12), padx=(20, 20))
+btn_frame.grid_columnconfigure(0, weight=1)
+
+# Gestion focus/clavier sur les boutons
+button_list = []
+focus_idx = 0
+_end_html_opened = False
+
+def _create_button(parent, text, command):
+    """Crée un bouton avec le style terminal unifié."""
+    return tk.Button(
+        parent, text=text, command=command,
+        bg=TERMINAL_BG, fg=TERMINAL_FG,
+        activebackground=TERMINAL_ACTIVE_BG, activeforeground=TERMINAL_FG,
+        font=TERMINAL_FONT, relief='flat', borderwidth=0, cursor='hand2',
+        highlightthickness=1, highlightbackground=TERMINAL_HIGHLIGHT_BG,
+        highlightcolor=TERMINAL_FG, takefocus=True, padx=10, pady=6
+    )
+
+def focus_button(idx: int):
+    global focus_idx
+    if not button_list:
+        return
+    focus_idx = max(0, min(idx, len(button_list) - 1))
+    try:
+        button_list[focus_idx].focus_set()
+    except Exception:
+        pass
+
+def on_key_left(event=None):
+    if button_list:
+        focus_button((focus_idx - 1) % len(button_list))
+
+def on_key_right(event=None):
+    if button_list:
+        focus_button((focus_idx + 1) % len(button_list))
+
+def on_key_enter(event=None):
+    if button_list:
+        try:
+            button_list[focus_idx].invoke()
+        except Exception:
+            pass
+
+root.bind('<Left>', on_key_left)
+root.bind('<Right>', on_key_right)
+root.bind('<Return>', on_key_enter)
+root.bind('<KP_Enter>', on_key_enter)
+root.bind('<space>', on_key_enter)
+
+def show(node_id):
+    global button_list, _end_html_opened, _current_image_name, _last_img_size, user_name, has_previous_errors
+    
+    # Traquer les erreurs aux questions 1 et 2
+    if node_id in ["cas_erreur_q1", "cas_erreur_q2"]:
+        has_previous_errors = True
+    
+    # Rediriger vers jean_michel_enerve si erreur à Q3 après des erreurs précédentes
+    if node_id == "cas_erreur_q3" and has_previous_errors:
+        node_id = "jean_michel_enerve"
+    
+    node = STORY[node_id]
+
+    # Gérer l'image associée au nœud
+    _current_image_name = node.get("image", "normal.png")
+    if HAS_PIL:
+        _load_image(_current_image_name)
+    _last_img_size = None  # Force le rechargement
+    _resize_image()
+
+    # Mettre à jour le texte dans la zone scrollable
+    text_area.configure(state='normal')
+    text_area.delete('1.0', 'end')
+    try:
+        formatted = node["text"].format(name=user_name)
+    except Exception:
+        formatted = node["text"]
+    text_area.insert('1.0', formatted)
+    text_area.configure(state='disabled')
+    text_area.yview_moveto(0)
+
+    # Recréer les widgets dans btn_frame
+    for w in btn_frame.winfo_children():
+        w.destroy()
+    button_list = []
+
+    # Si le nœud demande une entrée (ex: prénom), on ajoute un Entry
+    input_key = node.get("input_key")
+    entry_var, entry_widget = None, None
+    if input_key:
+        entry_var = tk.StringVar()
+        entry_widget = tk.Entry(
+            btn_frame, textvariable=entry_var,
+            bg=TERMINAL_BG, fg=TERMINAL_FG, insertbackground=TERMINAL_FG,
+            font=TERMINAL_FONT, relief='flat', borderwidth=1, width=30
+        )
+        entry_widget.grid(row=0, column=0, columnspan=4, padx=6, pady=(4, 6), sticky='w')
+
+    if node["choices"]:
+        for idx, (label, next_id) in enumerate(node["choices"]):
+            # Déterminer la commande selon le contexte
+            if input_key:
+                def _on_validate(nid=next_id, var=entry_var):
+                    global user_name
+                    val = (var.get() if var else "").strip()
+                    if not val:
+                        root.bell()
+                        return
+                    user_name = val
+                    show(nid)
+                cmd = _on_validate
+            elif node_id == 'end':
+                def _cmd(nid=next_id):
+                    global _end_html_opened
+                    if not _end_html_opened:
+                        _end_html_opened = True
+                        # Appel direct pour garantir l'affichage du screamer
+                        _show_screamer_overlay()
+                    show(nid)
+                cmd = _cmd
+            else:
+                cmd = partial(show, next_id)
+            
+            btn = _create_button(btn_frame, f"> {label}", cmd)
+            btn.grid(row=(1 if input_key else 0), column=idx, padx=6)
+            button_list.append(btn)
+        
+        root.after(0, entry_widget.focus_set if entry_widget else lambda: focus_button(0))
+    else:
+        btn = _create_button(btn_frame, "> Quitter", root.destroy)
+        btn.grid(row=0, column=0, padx=6)
+        button_list = [btn]
+        root.after(0, lambda: focus_button(0))
+
+    # Ne pas déclencher automatiquement ici: le screamer doit se lancer après l'action (clic)
+
+# Démarrer avec la première scène
+show("start")
+
+# Lancer la boucle principale
+# Remonter l'image encore une fois après la mise en page initiale
+root.after(0, image_frame.lift)
+root.mainloop()

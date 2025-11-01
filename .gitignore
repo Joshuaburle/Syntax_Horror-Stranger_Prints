@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# PyInstaller
+*.spec
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Windows Zone.Identifier
+*:Zone.Identifier
+*Zone.Identifier
+
+# Backups
+*.backup
+*.bak
+*~
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.cache/
