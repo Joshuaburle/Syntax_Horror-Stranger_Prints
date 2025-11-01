@@ -164,10 +164,55 @@ def _show_screamer_overlay(on_done=None):
             pass
         on_done()
 
+def _show_text_screamer():
+    """Fallback screamer sans PIL : affichage texte avec effet."""
+    overlay = tk.Toplevel(root)
+    overlay.attributes('-topmost', True)
+    overlay.overrideredirect(True)
+    overlay.configure(bg='black')
+    
+    screen_w = overlay.winfo_screenwidth()
+    screen_h = overlay.winfo_screenheight()
+    overlay.geometry(f"{screen_w}x{screen_h}+0+0")
+    
+    # Texte screamer en ASCII art
+    screamer_text = """
+    
+    ██╗  ██╗███████╗    ██╗    ██╗ █████╗ ████████╗ ██████╗██╗  ██╗███████╗███████╗
+    ██║  ██║██╔════╝    ██║    ██║██╔══██╗╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔════╝
+    ███████║█████╗      ██║ █╗ ██║███████║   ██║   ██║     ███████║█████╗  ███████╗
+    ██╔══██║██╔══╝      ██║███╗██║██╔══██║   ██║   ██║     ██╔══██║██╔══╝  ╚════██║
+    ██║  ██║███████╗    ╚███╔███╔╝██║  ██║   ██║   ╚██████╗██║  ██║███████╗███████║
+    ╚═╝  ╚═╝╚══════╝     ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝
+    
+                    Y O U   C A N ' T   E S C A P E   T H E   P O I N T E R S
+    """
+    
+    label = tk.Label(overlay, text=screamer_text, 
+                     bg='black', fg='red', 
+                     font=('Courier', 10, 'bold'),
+                     justify='center')
+    label.place(relx=0.5, rely=0.5, anchor='center')
+    
+    # Effet de clignotement
+    def blink(count=6):
+        if count > 0:
+            current_fg = label.cget('fg')
+            label.config(fg='white' if current_fg == 'red' else 'red')
+            overlay.after(150, lambda: blink(count - 1))
+        else:
+            overlay.destroy()
+            _open_html_endcard()
+    
+    overlay.after(500, lambda: blink())
+
 def _show_screamer_overlay():
     """Affiche le screamer animé (GIF) + audio en overlay avant la fin."""
     if not HAS_PIL:
-        _open_html_endcard()
+        # Fallback sans PIL : afficher un screamer texte
+        _show_text_screamer()
+        return
+        _show_text_screamer()
         return
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
