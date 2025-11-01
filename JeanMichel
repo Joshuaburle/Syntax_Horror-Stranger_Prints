@@ -10,6 +10,7 @@ except ImportError:
     HAS_PIL = False
 
 def on_closing():
+    # AFFICHE VISAGE MECONTENT
     text_var.set("> Vous ne pouvez pas quitter comme ça...")
     root.bell()  # Fait un son pour l'effet
 
@@ -61,19 +62,20 @@ Que fait l'expression &*p si p est un pointeur valide ?""",
             ("Retourne l'adresse pointée par p", "strange_question")
         ]
     },
-
+#PLACEHOLDER VISAGE MECONTENT
     "cas_erreur": {
         "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
         "choices": [("Recommencer", "first_question")]
     },
 
+#PLACEHOLDER VISAGE EN COLERE
     "jean_michel_enerve": {
         "text": """Jean-Michel Pointeur (v1.1)
 Ça suffit les erreurs ! On va tout reprendre depuis le début.
 Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !""",
-        "choices": [("Recommencer", "first_question")]
+        "choices": [("Recommencer", "third_question")]
     },
-
+#PLACEHOLDER VISAGE NORMAL
     "strange_question": {
         "text": """Si tu ne pouvais sauver qu'une personne, tu choisirais de sauver :""",
         "choices": [
@@ -83,10 +85,14 @@ Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettr
     },
 
     "end": {
-        "text": "Merci d'avoir participé !",
-        "choices": []
+        "text": """Est-ce-que-tu-préfères :""",
+        "choices": [
+            ("Me rejoindre?", "end"),
+            ("Ou que je vienne te chercher :)?", "end")
+        ]
+#PLACEHOLDER VISAGE HORRIBLE (SCREAMEUR)
+        }
     }
-}
 
 root = tk.Tk()
 root.title("Terminal")
