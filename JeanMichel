@@ -10,7 +10,7 @@ except ImportError:
     HAS_PIL = False
 
 def on_closing():
-    text_var.set("> Vous ne pouvez pas quitter comme ça...")
+    # Empêcher la fermeture de la fenêtre
     root.bell()  # Fait un son pour l'effet
 
 STORY = {

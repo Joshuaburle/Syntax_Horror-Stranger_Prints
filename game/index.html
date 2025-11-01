@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phase Jeux — Prototype FPS (PS2‑like)</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Import map to resolve bare specifier 'three' used by example modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="hud">
+      <div class="panel">
+        <h1>⚠ Phase Expérimentale ⚠</h1>
+  <p>Cliquer pour entrer. Contrôles: Z Q S D (ou Flèches). Échap pour échapper.</p>
+        <p class="muted">Ne regardez pas en arrière.</p>
+        <a href="../jeanmichel.html" class="back">← Fuir</a>
+        <button id="ambToggle" class="btn">Ambiance: OFF</button>
+      </div>
+      <div id="settings" class="panel right">
+        <div class="row"><label>Vitesse <input id="uiSpeed" type="range" min="1" max="6" step="0.1" value="2.65"></label></div>
+        <div class="row"><label>FOV <input id="uiFov" type="range" min="60" max="100" step="1" value="75"></label></div>
+        <div class="row"><label>Fog <input id="uiFog" type="range" min="0" max="0.05" step="0.001" value="0.012"></label></div>
+        <div class="row"><label>Lumière amb. <input id="uiAmb" type="range" min="0" max="1.2" step="0.05" value="0.7"></label></div>
+        <hr>
+        <div class="row"><label><input id="uiXhVis" type="checkbox" checked> Réticule</label></div>
+        <div class="row"><label>Couleur <input id="uiXhColor" type="color" value="#ffffff"></label></div>
+        <div class="row"><label>Taille <input id="uiXhSize" type="range" min="8" max="24" step="1" value="14"></label></div>
+        <button id="resetPos" class="btn">Revenir au début</button>
+      </div>
+      <div id="prompt" class="prompt" hidden></div>
+      <div id="msg" class="msg" hidden></div>
+      <div id="crosshair"><span></span></div>
+    </div>
+    <div id="viewport"></div>
+
+    <!-- Fight overlay (minigame style Undertale) -->
+    <div id="fightWrap" class="fight-wrap" hidden>
+      <div class="fight-hud-top">
+        <div id="fightHearts" class="fight-hearts" aria-label="Points de vie"></div>
+        <div class="fight-boss-bar">
+          <div class="boss-bar-label">ENTITÉ</div>
+          <div class="boss-bar-container">
+            <div id="fightBossHP" class="boss-bar-fill"></div>
+          </div>
+        </div>
+        <div id="fightTimer" class="fight-timer">ESQUIVE: 15.0s</div>
+      </div>
+      <canvas id="fight" width="320" height="200" aria-label="Zone d'esquive"></canvas>
+      <div class="fight-ui">
+        <span id="fightInfo" class="muted">Esquivez puis attaquez (ESPACE) - 3 coups pour vaincre</span>
+        <button id="fightExit" hidden>Continuer</button>
+      </div>
+    </div>
+
+    <!-- Script en module pour imports depuis CDN -->
+    <script type="module" src="script.js"></script>
+    <script>
+      // Affiche les erreurs JS dans le HUD si quelque chose bloque le rendu
+      window.addEventListener('error', (e)=>{
+        const el = document.getElementById('msg');
+        if(!el) return;
+        el.hidden = false;
+        el.textContent = 'Erreur: ' + (e?.message || 'inconnue');
+      });
+    </script>
+  </body>
+  </html>
