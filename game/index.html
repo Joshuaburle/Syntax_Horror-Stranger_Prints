@@ -1,120 +1,41 @@
-<!DOCTYPE html><!DOCTYPE html>
-
-<html lang="fr"><html lang="fr">
-
-<head>  <head>
-
-    <meta charset="UTF-8">    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <meta name="viewport" content="width=device-width,initial-scale=1">
-
-    <title>Couloir de l'Oubli</title>    <title>Phase Jeux — Prototype FPS</title>
-
-    <link rel="stylesheet" href="style.css">    <link rel="stylesheet" href="style.css">
-
-    <script type="importmap">    <script type="importmap">
-
-      {      {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
-
-        "imports": {    </script>
-
-          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"  </head>
-
-        }  <body>
-
-      }    <div id="hud">
-
-    </script>      <div class="panel" hidden>
-
-</head>        <h1>⚠ Phase Expérimentale ⚠</h1>
-
-<body>        <p>Cliquer pour entrer. Contrôles: ZQSD (ou Flèches). Échap pour sortir.</p>
-
-    <!-- HUD -->        <p class="muted">Ne regardez pas en arrière.</p>
-
-    <div id="hud">        <a href="../jeanmichel.html" class="back">← Fuir</a>
-
-        <div id="prompt" class="prompt" hidden></div>        <button id="ambToggle" class="btn">Ambiance: OFF</button>
-
-        <div id="message" class="message" hidden></div>      </div>
-
-        <div id="crosshair">      <div id="settings" class="panel right" hidden>
-
-            <div class="h-line"></div>        <div class="row"><label>Vitesse <input id="uiSpeed" type="range" min="1" max="6" step="0.1" value="2.65"></label></div>
-
-            <div class="v-line"></div>        <div class="row"><label>FOV <input id="uiFov" type="range" min="60" max="100" step="1" value="75"></label></div>
-
-        </div>        <div class="row"><label>Fog <input id="uiFog" type="range" min="0" max="0.05" step="0.001" value="0.012"></label></div>
-
-    </div>        <div class="row"><label>Lumière <input id="uiAmb" type="range" min="0" max="1.2" step="0.05" value="0.7"></label></div>
-
-        <hr>
-
-    <!-- Viewport 3D -->        <div class="row"><label><input id="uiXhVis" type="checkbox"> Réticule</label></div>
-
-    <div id="viewport"></div>        <div class="row"><label>Couleur <input id="uiXhColor" type="color" value="#ffffff"></label></div>
-
-        <div class="row"><label>Taille <input id="uiXhSize" type="range" min="8" max="24" step="1" value="14"></label></div>
-
-    <!-- Écran de combat Undertale -->        <button id="resetPos" class="btn">Revenir au début</button>
-
-    <div id="combat-screen" class="combat-screen" hidden>      </div>
-
-        <div class="combat-hud">      <div id="prompt" class="prompt" hidden></div>
-
-            <div class="hp-bar">      <div id="msg" class="msg" hidden></div>
-
-                <span class="hp-label">PV</span>      <div id="crosshair"><span></span></div>
-
-                <div class="hp-container">    </div>
-
-                    <div id="hp-fill" class="hp-fill"></div>    <div id="viewport"></div>
-
-                </div>
-
-                <span id="hp-text" class="hp-text">20 / 20</span>    <div id="fightWrap" class="fight-wrap" hidden>
-
-            </div>      <div class="fight-hud-top">
-
-        </div>        <div id="fightHearts" class="fight-hearts"></div>
-
-        <canvas id="combat-canvas" width="640" height="480"></canvas>        <div class="fight-boss-bar">
-
-        <div class="combat-text">          <div class="boss-bar-label">ENTITÉ</div>
-
-            <p id="combat-message">* Une présence hostile vous fait face...</p>          <div class="boss-bar-container">
-
-        </div>            <div id="fightBossHP" class="boss-bar-fill"></div>
-
-    </div>          </div>
-
-        </div>
-
-    <script type="module" src="script.js"></script>        <div class="fight-phase-wrap">
-
-</body>          <div id="fightPhase" class="fight-phase">ESQUIVE</div>
-
-</html>          <div id="fightTimer" class="fight-timer">15.0s</div>
-
-        </div>
-      </div>
-      <canvas id="fight" width="320" height="200"></canvas>
-      <div class="fight-ui">
-        <span id="fightInfo" class="muted">Esquivez puis attaquez (ESPACE) - 3 coups pour vaincre</span>
-        <button id="fightExit" hidden>Continuer</button>
-      </div>
-    </div>
-
-    <!-- Script en module pour imports depuis CDN -->
-    <script type="module" src="script.js"></script>
-    <script>
-      // Affiche les erreurs JS dans le HUD si quelque chose bloque le rendu
-      window.addEventListener('error', (e)=>{
-        const el = document.getElementById('msg');
-        if(!el) return;
-        el.hidden = false;
-        el.textContent = 'Erreur: ' + (e?.message || 'inconnue');
-      });
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horror FPS - PS2 Style</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+    }
     </script>
-  </body>
-  </html>
+</head>
+<body>
+    <div id="viewport"></div>
+    
+    <div id="hud">
+        <div id="prompt" hidden>Appuyez sur E</div>
+        <div id="message" hidden>Message</div>
+        <div id="crosshair">
+            <div class="h-line"></div>
+            <div class="v-line"></div>
+        </div>
+    </div>
+    
+    <div id="combat-screen" class="combat-screen" hidden>
+        <canvas id="combat-canvas" width="640" height="480"></canvas>
+        <div class="combat-ui">
+            <div class="hp-bar">
+                <div class="hp-fill" id="hp-fill"></div>
+                <span class="hp-text" id="hp-text">20 / 20</span>
+            </div>
+            <div id="combat-message" class="combat-message">* Message de combat</div>
+        </div>
+    </div>
+    
+    <script type="module" src="script.js"></script>
+</body>
+</html>
