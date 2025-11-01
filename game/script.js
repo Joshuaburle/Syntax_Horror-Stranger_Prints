@@ -20,11 +20,16 @@ bossVideo.autoplay = true;
 bossVideo.play();
 
 const messages = [
-    "* ...chut... il écoute.",
-    "* Ses yeux ne clignent plus.",
-    "* Les murs se rapprochent...",
-    "* Sa bouche s'ouvre et aspire la lumière.",
-    "* IL FAUT FUIR."
+    // 0 - mecontent.png
+    "* Il fronce les sourcils. Quelque chose cloche...",
+    // 1 - colere.png
+    "* Sa colère monte. Son regard vous transperce.",
+    // 2 - big_mouth.png
+    "* Sa mâchoire s'entrouvre. Dents luisantes...",
+    // 3 - screamer.png (aspiration + arcs)
+    "* Il essaie de vous avaler. Les tirs dessinent des arcs...",
+    // 4 - screamer_animated.mp4 (murs qui se referment)
+    "* Les murs grincent et se referment. Aucun laser."
 ];
 
 // Effet dactylographie + léger glitch
@@ -42,7 +47,8 @@ function setMessage(text, {speed=22, glitch=true} = {}) {
             return;
         }
         shown += chars[i++];
-        if (glitch && Math.random() < 0.1) {
+        const glitchChance = text.includes('̷') ? 0.3 : 0.1; // Plus de glitch pour texte corrompu
+        if (glitch && Math.random() < glitchChance) {
             // très léger flicker
             el.style.opacity = '0.7';
             setTimeout(()=>{ el.style.opacity = '1'; }, 40);
@@ -58,6 +64,14 @@ bossImages.forEach((src, i) => {
 });
 
 const keys = { up: false, down: false, left: false, right: false, space: false };
+
+// Retry button handler
+const retryBtn = document.getElementById('retry');
+if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+        resetGame();
+    });
+}
 
 document.addEventListener('keydown', (e) => {
     switch(e.code) {
@@ -86,142 +100,107 @@ let patternTimer = 0;
 
 // Patterns spécifiques par phase
 function spawnBulletsPhase0() {
-    // Phase 0: Vagues horizontales simples
-    if (Math.random() < 0.025) {
+    // Phase 0 (mécontent): Pointeurs en C (->)
+    if (Math.random() < 0.035) {
         const side = Math.random() < 0.5;
         gameState.bullets.push({
-            x: side ? dodgeBox.x - 20 : dodgeBox.x + dodgeBox.width + 20,
+            x: side ? dodgeBox.x - 30 : dodgeBox.x + dodgeBox.width + 30,
             y: dodgeBox.y + Math.random() * dodgeBox.height,
-            vx: (side ? 1 : -1) * 100,
+            vx: (side ? 1 : -1) * 130,
             vy: 0,
-            size: 14,
-            shape: 'circle'
+            size: 20,
+            shape: 'cpointer'
         });
     }
 }
 
 function spawnBulletsPhase1() {
-    // Phase 1: Pluie verticale en colonnes
-    if (Math.random() < 0.02) {
-        const col = Math.floor(Math.random() * 4);
+    // Phase 1 (colère): Stylos qui tombent
+    if (Math.random() < 0.03) {
         gameState.bullets.push({
-            x: dodgeBox.x + 50 + col * 100,
-            y: dodgeBox.y - 25,
-            vx: 0,
-            vy: 120,
-            size: 13,
-            shape: 'square'
+            x: dodgeBox.x + 20 + Math.random() * (dodgeBox.width - 40),
+            y: dodgeBox.y - 30,
+            vx: (Math.random() - 0.5) * 30,
+            vy: 140,
+            size: 22,
+            shape: 'pen',
+            angle: Math.random() * Math.PI * 2
         });
     }
 }
 
 function spawnBulletsPhase2() {
-    // Phase 2: Croix qui convergent + chevrons/pointers
-    if (Math.random() < 0.015) {
-        const centerX = dodgeBox.x + dodgeBox.width / 2;
-        const centerY = dodgeBox.y + dodgeBox.height / 2;
-        const directions = [
-            {vx: 80, vy: 0},   // droite
-            {vx: -80, vy: 0},  // gauche
-            {vx: 0, vy: 80},   // bas
-            {vx: 0, vy: -80}   // haut
-        ];
-        const side = Math.floor(Math.random() * 4);
-        const dir = directions[side];
-        let startX = centerX, startY = centerY;
-        if (dir.vx > 0) startX = dodgeBox.x - 30;
-        if (dir.vx < 0) startX = dodgeBox.x + dodgeBox.width + 30;
-        if (dir.vy > 0) startY = dodgeBox.y - 30;
-        if (dir.vy < 0) startY = dodgeBox.y + dodgeBox.height + 30;
-        
-        gameState.bullets.push({
-            x: startX,
-            y: startY,
-            vx: dir.vx,
-            vy: dir.vy,
-            size: 15,
-            shape: 'cross'
-        });
-    }
-    // Chevrons rapides (pointeurs)
-    if (Math.random() < 0.02) {
-        const side = Math.random() < 0.5;
-        gameState.bullets.push({
-            x: side ? dodgeBox.x - 30 : dodgeBox.x + dodgeBox.width + 30,
-            y: dodgeBox.y + Math.random() * dodgeBox.height,
-            vx: (side ? 1 : -1) * 140,
-            vy: 0,
-            size: 18,
-            shape: 'chevron'
-        });
-    }
+    // Phase 2 (big mouth): calme avant la tempête (aucun projectile)
 }
 
 function spawnBulletsPhase3() {
-    // Phase 3: Spirales diagonales
-    if (Math.random() < 0.012) {
-        const corners = [
-            {x: dodgeBox.x - 30, y: dodgeBox.y - 30, vx: 90, vy: 90},
-            {x: dodgeBox.x + dodgeBox.width + 30, y: dodgeBox.y - 30, vx: -90, vy: 90},
-            {x: dodgeBox.x - 30, y: dodgeBox.y + dodgeBox.height + 30, vx: 90, vy: -90},
-            {x: dodgeBox.x + dodgeBox.width + 30, y: dodgeBox.y + dodgeBox.height + 30, vx: -90, vy: -90}
-        ];
-        const corner = corners[Math.floor(Math.random() * 4)];
+    // Phase 3 (screamer.png): Aspiration + projectiles en arc (style Flowey) + gouttes
+    patternTimer += 1/60;
+    const mouthX = 320;
+    const mouthY = 70;
+    // Salves en arc: un éventail de projectiles qui suivent une trajectoire courbée
+    if (Math.random() < 0.04) {
+        const mid = Math.PI / 2; // vers le bas (dans l'arène)
+        const span = Math.PI * (0.7 + Math.random() * 0.5); // 126° à 216°
+        const count = 8 + Math.floor(Math.random() * 5); // 8 à 12 projectiles
+        const baseSpeed = 120 + Math.random() * 40;
+        const turnSign = Math.random() < 0.5 ? -1 : 1;
+        const turnRate = turnSign * (0.8 + Math.random() * 1.2); // rad/s
+        for (let i = 0; i < count; i++) {
+            const a = mid - span/2 + (i/(count-1)) * span;
+            const vx = Math.cos(a) * baseSpeed;
+            const vy = Math.sin(a) * baseSpeed;
+            gameState.bullets.push({
+                x: mouthX,
+                y: mouthY,
+                vx, vy,
+                size: 11 + Math.random() * 3,
+                shape: 'circle', // rendu simple, mouvement courbé via turnRate
+                turnRate
+            });
+        }
+    }
+    // Gouttes sanglantes lentes vers le bas
+    if (Math.random() < 0.015) {
         gameState.bullets.push({
-            x: corner.x,
-            y: corner.y,
-            vx: corner.vx,
-            vy: corner.vy,
-            size: 16,
-            shape: 'diamond'
+            x: mouthX + (Math.random() - 0.5) * 40,
+            y: mouthY + 8,
+            vx: (Math.random() - 0.5) * 40,
+            vy: 80 + Math.random() * 40,
+            size: 10 + Math.random() * 4,
+            shape: 'blood',
+            glitch: Math.random() > 0.5
         });
     }
 }
 
 function spawnBulletsPhase4() {
-    // Phase 4: Style Sans - murs/beam + densité
+    // Phase 4 (screamer animé): Murs qui rétrécissent l'arène (sans lasers)
     patternTimer += 1/60;
-    
-    // Murs horizontaux/verticaux avec trou (beam)
-    if (Math.random() < 0.02) {
-        const horizontal = Math.random() < 0.5;
-        const gapSize = 80;
-        const gapPos = horizontal
-            ? dodgeBox.x + 40 + Math.random() * (dodgeBox.width - 80)
-            : dodgeBox.y + 40 + Math.random() * (dodgeBox.height - 80);
-
-        if (horizontal) {
-            // Mur horizontal qui monte
-            // Partie gauche du mur
-            gameState.bullets.push({ x: dodgeBox.x + (gapPos - dodgeBox.x)/2, y: dodgeBox.y + dodgeBox.height + 20,
-                vx: 0, vy: -160, shape: 'warn', w: (gapPos - dodgeBox.x), h: 18, delay: 0.5 });
-            // Partie droite du mur
-            const rightWidth = (dodgeBox.x + dodgeBox.width) - (gapPos + gapSize);
-            gameState.bullets.push({ x: gapPos + gapSize + rightWidth/2, y: dodgeBox.y + dodgeBox.height + 20,
-                vx: 0, vy: -160, shape: 'warn', w: rightWidth, h: 18, delay: 0.5 });
-        } else {
-            // Mur vertical qui va vers la gauche
-            // Partie haute
-            gameState.bullets.push({ x: dodgeBox.x + dodgeBox.width + 20, y: dodgeBox.y + (gapPos - dodgeBox.y)/2,
-                vx: -160, vy: 0, shape: 'warn', w: 18, h: (gapPos - dodgeBox.y), delay: 0.5 });
-            // Partie basse
-            const bottomHeight = (dodgeBox.y + dodgeBox.height) - (gapPos + gapSize);
-            gameState.bullets.push({ x: dodgeBox.x + dodgeBox.width + 20, y: gapPos + gapSize + bottomHeight/2,
-                vx: -160, vy: 0, shape: 'warn', w: 18, h: bottomHeight, delay: 0.5 });
+    // Les "murs" avancent lentement des 4 côtés
+    if (Math.random() < 0.012) {
+        const side = Math.floor(Math.random() * 4);
+        if (side === 0) { // haut
+            gameState.bullets.push({
+                x: dodgeBox.x + dodgeBox.width/2, y: dodgeBox.y - 20,
+                vx: 0, vy: 70, shape: 'wall', w: dodgeBox.width, h: 20
+            });
+        } else if (side === 1) { // bas
+            gameState.bullets.push({
+                x: dodgeBox.x + dodgeBox.width/2, y: dodgeBox.y + dodgeBox.height + 20,
+                vx: 0, vy: -70, shape: 'wall', w: dodgeBox.width, h: 20
+            });
+        } else if (side === 2) { // gauche
+            gameState.bullets.push({
+                x: dodgeBox.x - 20, y: dodgeBox.y + dodgeBox.height/2,
+                vx: 70, vy: 0, shape: 'wall', w: 20, h: dodgeBox.height
+            });
+        } else { // droite
+            gameState.bullets.push({
+                x: dodgeBox.x + dodgeBox.width + 20, y: dodgeBox.y + dodgeBox.height/2,
+                vx: -70, vy: 0, shape: 'wall', w: 20, h: dodgeBox.height
+            });
         }
-    }
-    
-    // Quelques projectiles rapides pour la pression
-    if (Math.random() < 0.03) {
-        const side = Math.random() < 0.5;
-        gameState.bullets.push({
-            x: side ? dodgeBox.x - 20 : dodgeBox.x + dodgeBox.width + 20,
-            y: dodgeBox.y + Math.random() * dodgeBox.height,
-            vx: (side ? 1 : -1) * 200,
-            vy: 0,
-            size: 10,
-            shape: 'circle'
-        });
     }
 }
 
@@ -249,14 +228,14 @@ function updateDodge(dt) {
     if (keys.left) gameState.player.x -= speed * dt;
     if (keys.right) gameState.player.x += speed * dt;
     
-    // Phase 3: aspiration vers la bouche (point en haut-centre)
-    if (gameState.bossPhase === 3) {
+        // Phase 3 (screamer.png): aspiration gore vers la bouche
+        if (gameState.bossPhase === 3) {
         const mouthX = canvas.width / 2;
         const mouthY = 70;
         const dx = mouthX - gameState.player.x;
         const dy = mouthY - gameState.player.y;
         const dist = Math.max(1, Math.hypot(dx, dy));
-        const pull = 140; // force d'aspiration
+            const pull = 180 + Math.sin(Date.now() / 100) * 40; // force chaotique
         gameState.player.x += (dx / dist) * pull * dt;
         gameState.player.y += (dy / dist) * pull * dt;
     }
@@ -278,6 +257,19 @@ function updateDodge(dt) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
         
+            // Rotation des dents
+            if (b.shape === 'teeth') {
+                b.angle += dt * 3;
+            }
+        // Courbure pour les projectiles de type arc (Flowey)
+        if (b.turnRate) {
+            const ang = b.turnRate * dt;
+            const cosA = Math.cos(ang), sinA = Math.sin(ang);
+            const vx = b.vx, vy = b.vy;
+            b.vx = vx * cosA - vy * sinA;
+            b.vy = vx * sinA + vy * cosA;
+        }
+        
         if (b.x < -50 || b.x > 690 || b.y < -50 || b.y > 530) {
             gameState.bullets.splice(i, 1);
             continue;
@@ -285,12 +277,13 @@ function updateDodge(dt) {
         
         // Collision par type
         let hit = false;
-        if (b.shape === 'beam') {
+        if (b.shape === 'beam' || b.shape === 'wall') {
             const px = gameState.player.x, py = gameState.player.y;
             const left = b.x - b.w/2, right = b.x + b.w/2;
             const top = b.y - b.h/2, bottom = b.y + b.h/2;
             if (px >= left && px <= right && py >= top && py <= bottom) hit = true;
         } else if (b.shape !== 'warn') {
+                // Collision circulaire pour circle, teeth, blood, cpointer, pen
             const dx = b.x - gameState.player.x;
             const dy = b.y - gameState.player.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -307,16 +300,64 @@ function drawDodge() {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
+    // Léger jitter visuel en phase 3 (aspiration)
+    let didJitter = false;
+    if (gameState.bossPhase === 3 && Math.random() > 0.9) {
+        didJitter = true;
+        ctx.save();
+        ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+    }
+    
+    // Effet de glitch en phase 4
+    if (gameState.bossPhase === 4 && Math.random() > 0.85) {
+        ctx.save();
+        ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+    }
+    
     // Boss display - use video for phase 4 (screamer)
     if (gameState.bossPhase === 4 && bossVideo.readyState >= 2) {
         ctx.drawImage(bossVideo, 220, 20, 200, 100);
+        // Effet de glitch chromatic aberration
+        if (Math.random() > 0.7) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.15;
+            ctx.drawImage(bossVideo, 218, 20, 200, 100);
+            ctx.drawImage(bossVideo, 222, 20, 200, 100);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+        }
     } else if (bossImgElements[gameState.bossPhase].complete) {
         ctx.drawImage(bossImgElements[gameState.bossPhase], 220, 20, 200, 100);
+    }
+    
+    if (gameState.bossPhase === 4 && Math.random() > 0.85) {
+        ctx.restore();
+    }
+    if (didJitter) {
+        ctx.restore();
     }
     
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 5;
     ctx.strokeRect(dodgeBox.x, dodgeBox.y, dodgeBox.width, dodgeBox.height);
+    
+        // Phase 3: effet de murs qui se rapprochent (overlay rouge)
+        if (gameState.bossPhase === 3) {
+            const pulse = Math.sin(Date.now() / 200) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(150, 0, 0, ${0.1 + pulse * 0.05})`;
+            // Ombres depuis les bords
+            const grad = ctx.createLinearGradient(dodgeBox.x, 0, dodgeBox.x + 40, 0);
+            grad.addColorStop(0, 'rgba(100,0,0,0.3)');
+            grad.addColorStop(1, 'rgba(100,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(dodgeBox.x, dodgeBox.y, 40, dodgeBox.height);
+        
+            const grad2 = ctx.createLinearGradient(dodgeBox.x + dodgeBox.width, 0, dodgeBox.x + dodgeBox.width - 40, 0);
+            grad2.addColorStop(0, 'rgba(100,0,0,0.3)');
+            grad2.addColorStop(1, 'rgba(100,0,0,0)');
+            ctx.fillStyle = grad2;
+            ctx.fillRect(dodgeBox.x + dodgeBox.width - 40, dodgeBox.y, 40, dodgeBox.height);
+        }
     
     ctx.fillStyle = '#ff0000';
     ctx.beginPath();
@@ -328,14 +369,15 @@ function drawDodge() {
     ctx.closePath();
     ctx.fill();
     
-    // Effet visuel d'aspiration phase 3
-    if (gameState.bossPhase === 3) {
+        // Effet visuel d'aspiration phase 3 (gore, chaotique)
+        if (gameState.bossPhase === 3) {
         const mouthX = canvas.width / 2;
         const mouthY = 70;
-        for (let k = 0; k < 12; k++) {
+            for (let k = 0; k < 18; k++) {
             const angle = (k / 12) * Math.PI * 2;
-            const len = 40 + (k % 3) * 10;
-            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                const len = 40 + (k % 3) * 10 + Math.sin(Date.now() / 50 + k) * 15;
+                ctx.strokeStyle = Math.random() > 0.3 ? 'rgba(255,50,50,0.12)' : 'rgba(255,255,255,0.08)';
+                ctx.lineWidth = 2 + Math.random() * 2;
             ctx.beginPath();
             ctx.moveTo(mouthX, mouthY);
             ctx.lineTo(mouthX + Math.cos(angle) * len, mouthY + Math.sin(angle) * len);
@@ -355,44 +397,76 @@ function drawDodge() {
                 ctx.arc(b.x, b.y, b.size / 2, 0, Math.PI * 2);
                 ctx.fill();
                 break;
-            case 'square':
-                ctx.fillRect(b.x - b.size/2, b.y - b.size/2, b.size, b.size);
-                break;
-            case 'cross':
+                case 'teeth':
+                    // Dents (triangles dentelés)
+                    ctx.save();
+                    ctx.translate(b.x, b.y);
+                    ctx.rotate(b.angle);
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const a = (i / 6) * Math.PI * 2;
+                        const r = i % 2 === 0 ? b.size/2 : b.size/4;
+                        const px = Math.cos(a) * r;
+                        const py = Math.sin(a) * r;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                    break;
+                case 'blood':
+                    // Projectiles sanglants (rouge, glitchy)
+                    ctx.save();
+                    if (b.glitch && Math.random() > 0.5) {
+                        ctx.translate(b.x + (Math.random() - 0.5) * 6, b.y + (Math.random() - 0.5) * 6);
+                    } else {
+                        ctx.translate(b.x, b.y);
+                    }
+                    ctx.fillStyle = `rgba(${200 + Math.random() * 55}, ${Math.random() * 30}, ${Math.random() * 30}, ${0.7 + Math.random() * 0.3})`;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, b.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Trainée
+                    if (Math.random() > 0.6) {
+                        ctx.fillStyle = 'rgba(180,20,20,0.3)';
+                        ctx.fillRect(-b.size/2, -2, -8, 4);
+                    }
+                    ctx.restore();
+                    break;
+            case 'cpointer':
+                // Pointeur C: ->
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(b.vx > 0 ? 0 : Math.PI);
                 ctx.beginPath();
-                const cs = b.size / 2;
-                ctx.moveTo(b.x, b.y - cs);
-                ctx.lineTo(b.x, b.y + cs);
-                ctx.moveTo(b.x - cs, b.y);
-                ctx.lineTo(b.x + cs, b.y);
+                // Trait horizontal
+                ctx.moveTo(-b.size/2, 0);
+                ctx.lineTo(b.size/3, 0);
+                // Pointe de flèche
+                ctx.moveTo(b.size/3 - 8, -6);
+                ctx.lineTo(b.size/3, 0);
+                ctx.lineTo(b.size/3 - 8, 6);
+                ctx.lineWidth = 3;
                 ctx.stroke();
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, cs/2, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.restore();
                 break;
-            case 'diamond':
-                ctx.beginPath();
-                const ds = b.size / 2;
-                ctx.moveTo(b.x, b.y - ds);
-                ctx.lineTo(b.x + ds, b.y);
-                ctx.lineTo(b.x, b.y + ds);
-                ctx.lineTo(b.x - ds, b.y);
-                ctx.closePath();
-                ctx.fill();
+            case 'pen':
+                // Stylo (rectangle allongé avec rotation)
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(b.angle);
+                ctx.fillStyle = '#4488ff';
+                ctx.fillRect(-3, -b.size/2, 6, b.size);
+                ctx.fillStyle = '#222';
+                ctx.fillRect(-3, -b.size/2, 6, 6);
+                ctx.restore();
                 break;
-            case 'star':
-                ctx.beginPath();
-                const ss = b.size / 2;
-                for (let i = 0; i < 5; i++) {
-                    const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
-                    const radius = i % 2 === 0 ? ss : ss / 2;
-                    const px = b.x + Math.cos(angle) * radius;
-                    const py = b.y + Math.sin(angle) * radius;
-                    if (i === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                }
-                ctx.closePath();
-                ctx.fill();
+            case 'wall':
+                // Mur (rectangle blanc semi-opaque)
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fillRect(b.x - b.w/2, b.y - b.h/2, b.w, b.h);
                 break;
             case 'beam':
                 ctx.fillRect(b.x - b.w/2, b.y - b.h/2, b.w, b.h);
@@ -400,22 +474,6 @@ function drawDodge() {
             case 'warn':
                 ctx.fillStyle = 'rgba(255,255,255,0.15)';
                 ctx.fillRect(b.x - b.w/2, b.y - b.h/2, b.w, b.h);
-                break;
-            case 'chevron':
-                // Dessiner un chevron > ou < selon vx
-                ctx.beginPath();
-                const c = b.size;
-                if (b.vx > 0) { // >
-                    ctx.moveTo(b.x - c/2, b.y - c/2);
-                    ctx.lineTo(b.x + c/2, b.y);
-                    ctx.lineTo(b.x - c/2, b.y + c/2);
-                } else { // <
-                    ctx.moveTo(b.x + c/2, b.y - c/2);
-                    ctx.lineTo(b.x - c/2, b.y);
-                    ctx.lineTo(b.x + c/2, b.y + c/2);
-                }
-                ctx.closePath();
-                ctx.fill();
                 break;
         }
     });
@@ -511,7 +569,9 @@ function playerHit() {
     
     if (gameState.playerHP <= 0) {
         gameState.phase = 'gameover';
-        setMessage("* GAME OVER", {speed: 30, glitch: true});
+        setMessage("* GAME OVER — appuyez sur Réessayer", {speed: 25, glitch: true});
+        const btn = document.getElementById('retry');
+        if (btn) btn.classList.remove('hidden');
     }
 }
 
@@ -540,6 +600,34 @@ function updatePlayerHP() {
 function updateBossHP() {
     const percent = (gameState.bossHP / 5) * 100;
     document.getElementById('boss-hp').style.width = percent + '%';
+}
+
+function resetGame() {
+    // Clear entities
+    gameState.bullets = [];
+    // Remove floating rmrf tags
+    document.querySelectorAll('#ui .rmrf').forEach(n => n.remove());
+    
+    // Reset core state
+    gameState.phase = 'dodge';
+    gameState.playerHP = 5;
+    gameState.bossHP = 5;
+    gameState.bossPhase = 0;
+    gameState.player.x = 320;
+    gameState.player.y = 350;
+    dodgeTime = 0;
+    patternTimer = 0;
+    attackPhaseActive = false;
+    attackProcessed = false;
+    const atk = document.getElementById('attack-phase');
+    if (atk) atk.classList.add('hidden');
+    
+    // UI refresh
+    updatePlayerHP();
+    updateBossHP();
+    setMessage(messages[0]);
+    const btn = document.getElementById('retry');
+    if (btn) btn.classList.add('hidden');
 }
 
 let lastTime = performance.now();
