@@ -30,27 +30,44 @@ IMAGE_SIZE_BOUNDS = (80, 350)    # (min, max)
 SERVER_PORT = 8000
 
 def on_closing():
-    # Empêche la fermeture et affiche un message dans la zone de texte
-    try:
-        text_area.configure(state='normal')
-        text_area.delete('1.0', 'end')
-        text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
-        text_area.configure(state='disabled')
-    except Exception:
+    """Affiche un message puis déclenche un screamer avant de fermer."""
+    global _closing_overlay_shown
+    if not '_closing_overlay_shown' in globals():
+        _closing_overlay_shown = False
+    if not _closing_overlay_shown:
+        _closing_overlay_shown = True
+        try:
+            text_area.configure(state='normal')
+            text_area.delete('1.0', 'end')
+            text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
+            text_area.configure(state='disabled')
+        except Exception:
+            pass
+        root.bell()  # Fait un son pour l'effet
+        # Screamer puis fermeture
+        try:
+            _show_screamer_overlay(on_done=root.destroy)
+        except Exception:
+            root.after(200, root.destroy)
+    else:
+        # Déjà en cours, ignorer
         pass
-    root.bell()  # Fait un son pour l'effet
 
-def _show_screamer_overlay():
-    """Affiche l'image screamer en overlay plein écran pendant 2s, puis ouvre l'endcard."""
+def _show_screamer_overlay(on_done=None):
+    """Affiche l'image screamer en overlay plein écran pendant 2s.
+    Si on_done est None, ouvre l'endcard à la fin, sinon exécute on_done.
+    """
+    if on_done is None:
+        on_done = _open_html_endcard
     if not HAS_PIL:
-        _open_html_endcard()
+        on_done()
         return
 
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
         if not os.path.exists(img_path):
-            _open_html_endcard()
+            on_done()
             return
 
         # Fenêtre overlay au-dessus de tout, bordures masquées
@@ -91,7 +108,7 @@ def _show_screamer_overlay():
                 overlay.destroy()
             except Exception:
                 pass
-            _open_html_endcard()
+            on_done()
 
         overlay.after(2000, _close_then_open)
     except Exception as e:
@@ -99,7 +116,7 @@ def _show_screamer_overlay():
             print(f"Erreur screamer overlay: {e}")
         except Exception:
             pass
-        _open_html_endcard()
+        on_done()
 
 def _open_html_endcard():
     """Ouvre game/index.html via un serveur HTTP local (Unity WebGL)."""
@@ -541,10 +558,7 @@ def show(node_id):
         button_list = [btn]
         root.after(0, lambda: focus_button(0))
 
-    # Déclencher le screamer immédiatement à l'arrivée sur le nœud 'end'
-    if node_id == 'end' and not _end_html_opened:
-        _end_html_opened = True
-        _show_screamer_overlay()
+    # Ne pas déclencher automatiquement ici: le screamer doit se lancer après l'action (clic)
 
 # Démarrer avec la première scène
 show("start")
