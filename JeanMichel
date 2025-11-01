@@ -41,57 +41,138 @@ def on_closing():
     root.bell()  # Fait un son pour l'effet
 
 def _show_screamer_overlay():
-    """Affiche le screamer en overlay pendant 2 secondes avant la fin."""
+    """Affiche le screamer animé (GIF) + audio en overlay avant la fin."""
     if not HAS_PIL:
-        # Pas de PIL, on passe directement à la fin
         _open_html_endcard()
         return
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+    gif_path = os.path.join(script_dir, 'images', 'screamer_animated_transparent.gif')
+    audio_path = os.path.join(script_dir, 'images', 'screamer_audio.mp3')
     
-    if not os.path.exists(img_path):
-        # Image pas trouvée, on passe directement à la fin
-        _open_html_endcard()
+    if not os.path.exists(gif_path):
+        # Fallback sur image fixe
+        img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+        if os.path.exists(img_path):
+            _show_screamer_static(img_path)
+        else:
+            _open_html_endcard()
         return
     
-    # Créer une fenêtre topmost en plein écran
+    # Créer fenêtre overlay plein écran NOIRE (préchargement)
     overlay = tk.Toplevel()
     overlay.attributes('-topmost', True)
     overlay.configure(bg='black')
-    overlay.overrideredirect(True)  # Pas de bordures
+    overlay.overrideredirect(True)
     
-    # Plein écran
+    screen_w = overlay.winfo_screenwidth()
+    screen_h = overlay.winfo_screenheight()
+    overlay.geometry(f"{screen_w}x{screen_h}+0+0")
+    
+    # Label noir vide pendant le chargement
+    label = tk.Label(overlay, bg='black')
+    label.place(relx=0.5, rely=0.5, anchor='center')
+    
+    # Forcer l'affichage immédiat de l'écran noir
+    overlay.update()
+    
+    try:
+        # PRÉCHARGER le GIF et les frames AVANT de jouer l'audio
+        gif = Image.open(gif_path)
+        target_h = int(screen_h * 0.8)
+        
+        # Extraire et redimensionner toutes les frames
+        frames = []
+        try:
+            while True:
+                frame = gif.copy().convert('RGBA')
+                ratio = frame.size[0] / frame.size[1]
+                target_w = int(target_h * ratio)
+                frame_resized = frame.resize((target_w, target_h), Image.LANCZOS)
+                frames.append(ImageTk.PhotoImage(frame_resized))
+                gif.seek(gif.tell() + 1)
+        except EOFError:
+            pass
+        
+        if not frames:
+            raise Exception("No frames in GIF")
+        
+        # MAINTENANT que tout est chargé, initialiser l'audio (sans jouer)
+        audio_ready = False
+        try:
+            import pygame
+            pygame.mixer.init()
+            if os.path.exists(audio_path):
+                pygame.mixer.music.load(audio_path)
+                audio_ready = True
+        except Exception as e:
+            print(f"Audio error: {e}")
+        
+        # Variables d'animation
+        frame_idx = [0]
+        animation_active = [True]
+        
+        def animate():
+            if animation_active[0] and frames:
+                label.config(image=frames[frame_idx[0]])
+                frame_idx[0] = (frame_idx[0] + 1) % len(frames)
+                overlay.after(66, animate)  # ~15fps
+        
+        def stop_and_continue():
+            animation_active[0] = False
+            if audio_ready:
+                try:
+                    pygame.mixer.music.stop()
+                except Exception:
+                    pass
+            overlay.destroy()
+            _open_html_endcard()
+        
+        # Fonction pour démarrer l'audio ET l'animation en même temps
+        def start_screamer():
+            if audio_ready:
+                try:
+                    pygame.mixer.music.play()
+                except Exception:
+                    pass
+            animate()
+            # Fermer après durée de la vidéo (~7 secondes)
+            overlay.after(7000, stop_and_continue)
+        
+        # Attendre 100ms (écran noir visible) puis démarrer TOUT synchronisé
+        overlay.after(100, start_screamer)
+        
+    except Exception as e:
+        print(f"Erreur screamer animé: {e}")
+        overlay.destroy()
+        _open_html_endcard()
+
+def _show_screamer_static(img_path):
+    """Fallback: affiche l'image fixe si le GIF n'est pas dispo."""
+    overlay = tk.Toplevel()
+    overlay.attributes('-topmost', True)
+    overlay.configure(bg='black')
+    overlay.overrideredirect(True)
+    
     screen_w = overlay.winfo_screenwidth()
     screen_h = overlay.winfo_screenheight()
     overlay.geometry(f"{screen_w}x{screen_h}+0+0")
     
     try:
-        # Charger et redimensionner l'image
         img = Image.open(img_path)
-        
-        # Calculer la taille pour remplir environ 80% de l'écran
         target_h = int(screen_h * 0.8)
         ratio = img.size[0] / img.size[1]
         target_w = int(target_h * ratio)
-        
         img_resized = img.resize((target_w, target_h), Image.LANCZOS)
         photo = ImageTk.PhotoImage(img_resized)
         
-        # Label centré avec fond noir transparent
         label = tk.Label(overlay, image=photo, bg='black')
-        label.image = photo  # Garder une référence
+        label.image = photo
         label.place(relx=0.5, rely=0.5, anchor='center')
         
-        # Fermer après 2 secondes et ouvrir index.html
-        def _close_and_continue():
-            overlay.destroy()
-            _open_html_endcard()
-        
-        overlay.after(2000, _close_and_continue)
-        
+        overlay.after(2000, lambda: (overlay.destroy(), _open_html_endcard()))
     except Exception as e:
-        print(f"Erreur screamer overlay: {e}")
+        print(f"Erreur image fixe: {e}")
         overlay.destroy()
         _open_html_endcard()
 
