@@ -58,6 +58,11 @@ def _show_screamer_overlay():
         overlay.attributes('-topmost', True)
         overlay.overrideredirect(True)
         overlay.configure(bg='black')
+        try:
+            overlay.lift()
+            overlay.focus_force()
+        except Exception:
+            pass
 
         sw = overlay.winfo_screenwidth()
         sh = overlay.winfo_screenheight()
@@ -509,7 +514,8 @@ def show(node_id):
                     global _end_html_opened
                     if not _end_html_opened:
                         _end_html_opened = True
-                        root.after(50, _show_screamer_overlay)
+                        # Appel direct pour garantir l'affichage du screamer
+                        _show_screamer_overlay()
                     show(nid)
                 cmd = _cmd
             else:
