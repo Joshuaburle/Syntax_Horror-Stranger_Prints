@@ -1,8 +1,54 @@
 #!/usr/bin/env python3
+"""
+Jean-Michel Pointeur - Interactive C Pointer Learning Tool
+Requires: python3-tk, python3-pil, python3-pygame
+"""
+
+import sys
+import os
+
+# Vérification des dépendances avant de continuer
+def check_dependencies():
+    """Vérifie que toutes les bibliothèques nécessaires sont installées."""
+    missing = []
+    
+    try:
+        import tkinter
+    except ImportError:
+        missing.append("tkinter (python3-tk)")
+    
+    try:
+        from PIL import Image, ImageTk
+    except ImportError:
+        missing.append("PIL/Pillow (python3-pil)")
+    
+    try:
+        import pygame
+    except ImportError:
+        missing.append("pygame (python3-pygame)")
+    
+    if missing:
+        print("=" * 60)
+        print("ERREUR: Bibliothèques Python manquantes")
+        print("=" * 60)
+        print("\nLes bibliothèques suivantes sont requises mais introuvables:")
+        for lib in missing:
+            print(f"  - {lib}")
+        print("\n" + "=" * 60)
+        print("INSTALLATION (WSL/Ubuntu):")
+        print("=" * 60)
+        print("\nOuvrez WSL/Ubuntu et exécutez cette commande:\n")
+        print("  sudo apt update && sudo apt install -y python3-tk python3-pil python3-pygame")
+        print("\nPuis relancez ce programme.")
+        print("=" * 60)
+        input("\nAppuyez sur ENTRÉE pour fermer...")
+        sys.exit(1)
+
+# Vérifier les dépendances dès le démarrage
+check_dependencies()
 
 import tkinter as tk
 from functools import partial
-import os
 import webbrowser
 import subprocess
 import shutil
