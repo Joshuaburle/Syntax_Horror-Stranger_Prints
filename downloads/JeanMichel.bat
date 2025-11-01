@@ -48,6 +48,42 @@ REM Lancer le jeu via WSL
 echo Lancement de JeanMichel...
 echo.
 cd /d "%GAME_DIR%"
+
+REM Vérifier WSL
+where wsl >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERREUR: WSL n'est pas installe sur cette machine.
+    echo Ouvrez PowerShell en administrateur et lancez :  wsl --install
+    echo Redemarrez ensuite votre PC puis relancez ce programme.
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Vérifier Python3 dans WSL
+wsl python3 --version >nul 2>&1
+if errorlevel 1 (
+    echo Python3 n'est pas installe dans WSL. Tentative d'installation ^(sudo requis^)...
+    wsl -e bash -lc "sudo apt update && sudo apt install -y python3"
+)
+
+REM Vérifier les dependances Python (tkinter, Pillow, pygame)
+wsl python3 -c "import tkinter, PIL, pygame" >nul 2>&1
+if errorlevel 1 (
+    echo Les dependances Python sont manquantes.
+    set /p INSTALLDEPS=Installer automatiquement tkinter/Pillow/pygame dans WSL ? [O/N] : 
+    if /I "%INSTALLDEPS%"=="O" (
+        wsl -e bash -lc "sudo apt update && sudo apt install -y python3-tk python3-pil python3-pygame"
+    ) else (
+        echo Veuillez installer manuellement avec :
+        echo   wsl sudo apt update ^&^& sudo apt install -y python3-tk python3-pil python3-pygame
+        echo Puis relancez ce programme.
+        pause
+        exit /b 1
+    )
+)
+
 wsl python3 "%WSL_PATH%/JeanMichel"
 
 if errorlevel 1 (

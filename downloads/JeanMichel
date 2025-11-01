@@ -73,7 +73,7 @@ TERMINAL_FONT = ('Courier', 11)
 TERMINAL_FONT_LARGE = ('Courier', 12)
 IMAGE_SIZE_RATIO = (0.20, 0.30)  # (largeur%, hauteur%)
 IMAGE_SIZE_BOUNDS = (80, 350)    # (min, max)
-SERVER_PORT = 8000
+SERVER_PORT = 8000  # valeur par défaut; on choisira un port libre au runtime
 
 def on_closing():
     """Affiche un message puis déclenche un screamer avant de fermer."""
@@ -397,19 +397,26 @@ def _open_html_endcard():
     mimetypes.add_type('audio/mpeg', '.mp3')
     mimetypes.add_type('video/mp4', '.mp4')
     
-    # Démarrer le serveur si nécessaire (docroot = script_dir)
-    if not _port_in_use(SERVER_PORT):
-        try:
-            _start_server(root_dir)
-            # Attendre que le serveur soit prêt
-            if not _wait_for_server(SERVER_PORT):
-                print("Avertissement: Le serveur HTTP met du temps à démarrer")
-        except Exception as e:
-            print(f"Erreur serveur HTTP: {e}")
-            return
+    # Choisir un port libre (8000..8010) et démarrer le serveur si nécessaire
+    port = None
+    for p in range(8000, 8011):
+        if not _port_in_use(p):
+            port = p
+            break
+    if port is None:
+        print("Erreur: Aucun port disponible entre 8000 et 8010")
+        return
+    try:
+        _start_server(root_dir)
+        # Attendre que le serveur soit prêt
+        if not _wait_for_server(port):
+            print("Avertissement: Le serveur HTTP met du temps à démarrer")
+    except Exception as e:
+        print(f"Erreur serveur HTTP: {e}")
+        return
     
     # Ouvrir l'index du jeu avec un chemin absolu depuis la racine servie
-    url = f"http://127.0.0.1:{SERVER_PORT}/game/index.html"
+    url = f"http://127.0.0.1:{port}/game/index.html"
     
     # Tentative d'ouverture selon l'environnement
     # 1. WSL/Linux outils
