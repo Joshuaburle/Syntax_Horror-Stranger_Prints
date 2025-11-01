@@ -1,616 +1,1229 @@
-import * as THREE from 'three';
-import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
+import * as THREE from 'three';import * as THREE from 'three';
 
-(function(){
-  // HUD elements
-  const promptEl = document.getElementById('prompt');
-  const msgEl = document.getElementById('msg');
-  const fightWrap = document.getElementById('fightWrap');
-  const fightCanvas = document.getElementById('fight');
-  const fightInfo = document.getElementById('fightInfo');
-  const fightExit = document.getElementById('fightExit');
-  const ambToggle = document.getElementById('ambToggle');
-  // Settings UI
-  const uiSpeed = document.getElementById('uiSpeed');
-  const uiFov = document.getElementById('uiFov');
-  const uiFog = document.getElementById('uiFog');
-  const uiAmb = document.getElementById('uiAmb');
-  const uiXhVis = document.getElementById('uiXhVis');
-  const uiXhColor = document.getElementById('uiXhColor');
-  const uiXhSize = document.getElementById('uiXhSize');
-  const resetPos = document.getElementById('resetPos');
+import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
-  // Renderer in low resolution (PS2-like upscale)
-  const DPRScale = 0.6; // 0.5–0.7 looks good
+
+
+// ========================================(function(){
+
+// CONFIGURATION & ÉTAT DU JEU  // HUD elements
+
+// ========================================  const promptEl = document.getElementById('prompt');
+
+const CONFIG = {  const msgEl = document.getElementById('msg');
+
+    corridor: {  const fightWrap = document.getElementById('fightWrap');
+
+        width: 4,  const fightCanvas = document.getElementById('fight');
+
+        height: 3,  const fightInfo = document.getElementById('fightInfo');
+
+        length: 50  const fightExit = document.getElementById('fightExit');
+
+    },  const ambToggle = document.getElementById('ambToggle');
+
+    player: {  // Settings UI
+
+        speed: 5,  const uiSpeed = document.getElementById('uiSpeed');
+
+        sprintMultiplier: 1.5,  const uiFov = document.getElementById('uiFov');
+
+        hp: 20,  const uiFog = document.getElementById('uiFog');
+
+        maxHp: 20  const uiAmb = document.getElementById('uiAmb');
+
+    },  const uiXhVis = document.getElementById('uiXhVis');
+
+    combat: {  const uiXhColor = document.getElementById('uiXhColor');
+
+        dodgeTime: 15,  const uiXhSize = document.getElementById('uiXhSize');
+
+        playerSpeed: 200,  const resetPos = document.getElementById('resetPos');
+
+        bulletSpeed: 150
+
+    }  // Renderer in low resolution (PS2-like upscale)
+
+};  const DPRScale = 0.6; // 0.5–0.7 looks good
+
   const viewport = document.getElementById('viewport');
-  const renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:'low-power' });
-  renderer.setPixelRatio(Math.max(0.5, (window.devicePixelRatio||1) * DPRScale));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  viewport.appendChild(renderer.domElement);
 
-  // Scene & Camera
+let gameState = {  const renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:'low-power' });
+
+    mode: 'exploration', // 'exploration' | 'combat'  renderer.setPixelRatio(Math.max(0.5, (window.devicePixelRatio||1) * DPRScale));
+
+    hasKnife: false,  renderer.setSize(window.innerWidth, window.innerHeight);
+
+    playerHp: CONFIG.player.hp,  viewport.appendChild(renderer.domElement);
+
+    combatActive: false
+
+};  // Scene & Camera
+
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x120a0d, 0.006);
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 0.8, 0); // Hauteur ajustée pour bien voir
 
-  // Controls (Pointer Lock)
-  const controls = new PointerLockControls(camera, renderer.domElement);
-  viewport.addEventListener('click', ()=>{ if(!controls.isLocked) controls.lock(); });
+// ========================================  scene.fog = new THREE.FogExp2(0x120a0d, 0.006);
 
-  // Movement state
-  let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false, runPressed=false;
+// INITIALISATION SCENE & RENDERER  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+// ========================================  camera.position.set(0, 0.8, 0); // Hauteur ajustée pour bien voir
+
+const viewport = document.getElementById('viewport');
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });  // Controls (Pointer Lock)
+
+renderer.setSize(window.innerWidth, window.innerHeight);  const controls = new PointerLockControls(camera, renderer.domElement);
+
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));  viewport.addEventListener('click', ()=>{ if(!controls.isLocked) controls.lock(); });
+
+renderer.shadowMap.enabled = true;
+
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;  // Movement state
+
+viewport.appendChild(renderer.domElement);  let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false, runPressed=false;
+
   let interactPressed = false;
-  let speed = 2.6;
-  const velocity = new THREE.Vector3();
+
+const scene = new THREE.Scene();  let speed = 2.6;
+
+scene.background = new THREE.Color(0x0a0505);  const velocity = new THREE.Vector3();
+
+scene.fog = new THREE.FogExp2(0x0a0505, 0.015);
 
   function onKey(e, down){
-    const set = (code, val)=>{ if(e.code===code) return val; };
-    switch(e.code){
-      case 'KeyW': case 'KeyZ': case 'ArrowUp': moveForward = down; break;
-      case 'KeyS': case 'ArrowDown': moveBackward = down; break;
-      case 'KeyA': case 'KeyQ': case 'ArrowLeft': moveLeft = down; break;
-      case 'KeyD': case 'ArrowRight': moveRight = down; break;
-      case 'ShiftLeft': case 'ShiftRight': runPressed = down; break;
+
+const camera = new THREE.PerspectiveCamera(    const set = (code, val)=>{ if(e.code===code) return val; };
+
+    75,    switch(e.code){
+
+    window.innerWidth / window.innerHeight,      case 'KeyW': case 'KeyZ': case 'ArrowUp': moveForward = down; break;
+
+    0.1,      case 'KeyS': case 'ArrowDown': moveBackward = down; break;
+
+    1000      case 'KeyA': case 'KeyQ': case 'ArrowLeft': moveLeft = down; break;
+
+);      case 'KeyD': case 'ArrowRight': moveRight = down; break;
+
+camera.position.set(0, 1.6, 0);      case 'ShiftLeft': case 'ShiftRight': runPressed = down; break;
+
       case 'KeyE': if(down) interactPressed = true; break;
-    }
-  }
-  window.addEventListener('keydown', e=>onKey(e,true));
-  window.addEventListener('keyup', e=>onKey(e,false));
 
-  // =============================
-  // Textures procédurales (panneaux/bruit)
-  // =============================
-  function makeTexture(hex = '#2b2422', noise = 0.15) {
-    const cvs = document.createElement('canvas');
-    cvs.width = cvs.height = 128;
-    const ctx = cvs.getContext('2d');
+// ========================================    }
+
+// CONTRÔLES FPS  }
+
+// ========================================  window.addEventListener('keydown', e=>onKey(e,true));
+
+const controls = new PointerLockControls(camera, renderer.domElement);  window.addEventListener('keyup', e=>onKey(e,false));
+
+const keys = {
+
+    forward: false,  // =============================
+
+    backward: false,  // Textures procédurales (panneaux/bruit)
+
+    left: false,  // =============================
+
+    right: false,  function makeTexture(hex = '#2b2422', noise = 0.15) {
+
+    sprint: false,    const cvs = document.createElement('canvas');
+
+    interact: false    cvs.width = cvs.height = 128;
+
+};    const ctx = cvs.getContext('2d');
+
     ctx.fillStyle = hex;
-    ctx.fillRect(0,0,128,128);
-    // bruit
-    const img = ctx.getImageData(0,0,128,128);
-    for(let i=0;i<img.data.length;i+=4){
-      const n = (Math.random()-0.5) * 255 * noise;
+
+document.addEventListener('click', () => {    ctx.fillRect(0,0,128,128);
+
+    if (gameState.mode === 'exploration') {    // bruit
+
+        controls.lock();    const img = ctx.getImageData(0,0,128,128);
+
+    }    for(let i=0;i<img.data.length;i+=4){
+
+});      const n = (Math.random()-0.5) * 255 * noise;
+
       img.data[i]   = Math.max(0, Math.min(255, img.data[i]  + n));
-      img.data[i+1] = Math.max(0, Math.min(255, img.data[i+1]+ n*0.8));
-      img.data[i+2] = Math.max(0, Math.min(255, img.data[i+2]+ n*0.6));
-    }
-    ctx.putImageData(img, 0, 0);
-    // lignes horizontales/verticales (panneaux)
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 1;
-    for(let y=0;y<=128;y+=16){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(128,y); ctx.stroke(); }
-    for(let x=0;x<=128;x+=24){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,128); ctx.stroke(); }
-    const tex = new THREE.CanvasTexture(cvs);
+
+document.addEventListener('keydown', (e) => {      img.data[i+1] = Math.max(0, Math.min(255, img.data[i+1]+ n*0.8));
+
+    switch(e.code) {      img.data[i+2] = Math.max(0, Math.min(255, img.data[i+2]+ n*0.6));
+
+        case 'KeyW': case 'KeyZ': case 'ArrowUp': keys.forward = true; break;    }
+
+        case 'KeyS': case 'ArrowDown': keys.backward = true; break;    ctx.putImageData(img, 0, 0);
+
+        case 'KeyA': case 'KeyQ': case 'ArrowLeft': keys.left = true; break;    // lignes horizontales/verticales (panneaux)
+
+        case 'KeyD': case 'ArrowRight': keys.right = true; break;    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+
+        case 'ShiftLeft': case 'ShiftRight': keys.sprint = true; break;    ctx.lineWidth = 1;
+
+        case 'KeyE': keys.interact = true; break;    for(let y=0;y<=128;y+=16){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(128,y); ctx.stroke(); }
+
+    }    for(let x=0;x<=128;x+=24){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,128); ctx.stroke(); }
+
+});    const tex = new THREE.CanvasTexture(cvs);
+
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy?.()||4);
-    tex.needsUpdate = true;
-    return tex;
-  }
 
-  // Corridor build (wider, long)
-  const corridor = new THREE.Group();
-  scene.add(corridor);
-  const width = 1.8, height = 1.6, length = 2.0, segments = 15; // Hauteur augmentée
+document.addEventListener('keyup', (e) => {    tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy?.()||4);
 
-  // Texture unifiée pour TOUTES les surfaces (sol, plafond, murs)
-  const corridorTex = makeTexture('#2b2422', 0.14); 
-  corridorTex.repeat.set(2, 2); // Répétition pour plus de détails
-  const corridorMat = new THREE.MeshStandardMaterial({ 
-    color: 0xffffff, 
-    map: corridorTex, 
-    roughness: 0.85, 
-    metalness: 0.05,
-    side: THREE.DoubleSide
-  });
+    switch(e.code) {    tex.needsUpdate = true;
 
-  const wallThickness = 0.01;
+        case 'KeyW': case 'KeyZ': case 'ArrowUp': keys.forward = false; break;    return tex;
 
-  for(let i=0;i<segments;i++){
-    const z = -i*length;
-    // Sol avec la même texture que tout le reste
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, length), corridorMat);
-    floor.rotation.x = -Math.PI/2; floor.position.set(0, 0, z - length/2);
-    // Plafond
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(width, length), corridorMat);
-    ceil.rotation.x = Math.PI/2; ceil.position.set(0, height, z - length/2);
-    // Murs
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, length), corridorMat);
-    leftWall.position.set(-width/2, height/2, z - length/2);
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, length), corridorMat);
-    rightWall.position.set(width/2, height/2, z - length/2);
-    corridor.add(floor, ceil, leftWall, rightWall);
+        case 'KeyS': case 'ArrowDown': keys.backward = false; break;  }
 
-    // Lampes seulement tous les 2 segments pour optimiser
-    if(i % 2 === 0) {
-      const lamp = new THREE.PointLight(0xd4695a, 3.0, 20, 1.5);
-      const lampZ = z - length + 1.0;
-      lamp.position.set(0, height-0.3, lampZ);
-      lamp.userData.baseIntensity = 3.0;
-      lamp.userData.flickerSpeed = 0.3 + Math.random()*0.3;
-      corridor.add(lamp);
+        case 'KeyA': case 'KeyQ': case 'ArrowLeft': keys.left = false; break;
 
-      const fixture = new THREE.Group();
-      const bodyGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.04, 8);
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3d2a25, roughness: 0.9, metalness: 0.1 });
-      const body = new THREE.Mesh(bodyGeo, bodyMat); body.rotation.x = Math.PI/2;
-      const cap = new THREE.Mesh(new THREE.CircleGeometry(0.14, 12), new THREE.MeshBasicMaterial({ color: 0xffd2b0 }));
-      cap.rotation.x = -Math.PI/2; cap.position.y = -0.02;
-      fixture.add(body, cap);
-      fixture.position.set(0, height-0.28, lampZ);
-      corridor.add(fixture);
-    }
-  }
+        case 'KeyD': case 'ArrowRight': keys.right = false; break;  // Corridor build (wider, long)
 
-  // Porte condamnée derrière le spawn avec chaînes et cadenas
-  const sealedDoorZ = 0.5; // Proche derrière le spawn
-  
-  // Cadre de porte en bois sombre
-  const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a1a15, roughness: 0.95, metalness: 0.0 });
-  const sealedFrameTop = new THREE.Mesh(new THREE.BoxGeometry(width*0.6, 0.15, 0.1), doorFrameMat);
-  sealedFrameTop.position.set(0, height*0.85, sealedDoorZ);
-  const sealedFrameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.12, height*0.9, 0.1), doorFrameMat);
-  sealedFrameLeft.position.set(-width*0.3, height/2, sealedDoorZ);
-  const sealedFrameRight = sealedFrameLeft.clone();
-  sealedFrameRight.position.x = width*0.3;
-  corridor.add(sealedFrameTop, sealedFrameLeft, sealedFrameRight);
-  
-  // Double porte en bois usé
-  const sealedDoorMat = new THREE.MeshStandardMaterial({ 
-    color: 0x3d2820, 
-    map: corridorTex, 
-    roughness: 0.9, 
-    metalness: 0.0 
-  });
-  const doorWidth = (width*0.6 - 0.12) / 2;
-  const doorHeight = height * 0.85;
-  const sealedDoorL = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.08), sealedDoorMat);
-  sealedDoorL.position.set(-doorWidth/2 - 0.03, height/2, sealedDoorZ);
-  const sealedDoorR = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.08), sealedDoorMat);
-  sealedDoorR.position.set(doorWidth/2 + 0.03, height/2, sealedDoorZ);
-  corridor.add(sealedDoorL, sealedDoorR);
-  
-  // Chaînes qui traversent la porte (réduites à 3 pour performance)
-  const chainMat = new THREE.MeshStandardMaterial({ 
-    color: 0x4a4a4a, 
-    roughness: 0.7, 
-    metalness: 0.6 
-  });
-  for(let i = 0; i < 3; i++) { // Réduit de 4 à 3
-    const chainY = height * 0.3 + i * (height * 0.4 / 2);
-    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, width*0.65, 6), chainMat); // Réduit segments de 8 à 6
-    chain.rotation.z = Math.PI/2;
-    chain.position.set(0, chainY, sealedDoorZ - 0.05); // Devant la porte
-    corridor.add(chain);
+        case 'ShiftLeft': case 'ShiftRight': keys.sprint = false; break;  const corridor = new THREE.Group();
+
+    }  scene.add(corridor);
+
+});  const width = 1.8, height = 1.6, length = 2.0, segments = 15; // Hauteur augmentée
+
+
+
+// ========================================  // Texture unifiée pour TOUTES les surfaces (sol, plafond, murs)
+
+// CRÉATION DU COULOIR HORRIFIQUE  const corridorTex = makeTexture('#2b2422', 0.14); 
+
+// ========================================  corridorTex.repeat.set(2, 2); // Répétition pour plus de détails
+
+function createCorridor() {  const corridorMat = new THREE.MeshStandardMaterial({ 
+
+    const corridor = new THREE.Group();    color: 0xffffff, 
+
+        map: corridorTex, 
+
+    // Texture procédurale sale et usée    roughness: 0.85, 
+
+    const canvas = document.createElement('canvas');    metalness: 0.05,
+
+    canvas.width = canvas.height = 256;    side: THREE.DoubleSide
+
+    const ctx = canvas.getContext('2d');  });
+
     
-    // Maillons de chaîne (réduits)
-    for(let j = -2; j <= 2; j++) { // Réduit de -3,3 à -2,2
-      const link = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.015, 6, 10), chainMat); // Réduit segments
+
+    // Base gris foncé  const wallThickness = 0.01;
+
+    ctx.fillStyle = '#1a1410';
+
+    ctx.fillRect(0, 0, 256, 256);  for(let i=0;i<segments;i++){
+
+        const z = -i*length;
+
+    // Saleté et taches    // Sol avec la même texture que tout le reste
+
+    for (let i = 0; i < 200; i++) {    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, length), corridorMat);
+
+        ctx.fillStyle = `rgba(${Math.random() * 30}, ${Math.random() * 20}, ${Math.random() * 10}, ${Math.random() * 0.5})`;    floor.rotation.x = -Math.PI/2; floor.position.set(0, 0, z - length/2);
+
+        ctx.fillRect(Math.random() * 256, Math.random() * 256, Math.random() * 20, Math.random() * 20);    // Plafond
+
+    }    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(width, length), corridorMat);
+
+        ceil.rotation.x = Math.PI/2; ceil.position.set(0, height, z - length/2);
+
+    // Rayures verticales    // Murs
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, length), corridorMat);
+
+    ctx.lineWidth = 2;    leftWall.position.set(-width/2, height/2, z - length/2);
+
+    for (let x = 0; x < 256; x += 16) {    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, length), corridorMat);
+
+        ctx.beginPath();    rightWall.position.set(width/2, height/2, z - length/2);
+
+        ctx.moveTo(x, 0);    corridor.add(floor, ceil, leftWall, rightWall);
+
+        ctx.lineTo(x, 256);
+
+        ctx.stroke();    // Lampes seulement tous les 2 segments pour optimiser
+
+    }    if(i % 2 === 0) {
+
+          const lamp = new THREE.PointLight(0xd4695a, 3.0, 20, 1.5);
+
+    const texture = new THREE.CanvasTexture(canvas);      const lampZ = z - length + 1.0;
+
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;      lamp.position.set(0, height-0.3, lampZ);
+
+    texture.repeat.set(4, 4);      lamp.userData.baseIntensity = 3.0;
+
+          lamp.userData.flickerSpeed = 0.3 + Math.random()*0.3;
+
+    const material = new THREE.MeshStandardMaterial({      corridor.add(lamp);
+
+        map: texture,
+
+        roughness: 0.9,      const fixture = new THREE.Group();
+
+        metalness: 0.1      const bodyGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.04, 8);
+
+    });      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3d2a25, roughness: 0.9, metalness: 0.1 });
+
+          const body = new THREE.Mesh(bodyGeo, bodyMat); body.rotation.x = Math.PI/2;
+
+    // Sol      const cap = new THREE.Mesh(new THREE.CircleGeometry(0.14, 12), new THREE.MeshBasicMaterial({ color: 0xffd2b0 }));
+
+    const floor = new THREE.Mesh(      cap.rotation.x = -Math.PI/2; cap.position.y = -0.02;
+
+        new THREE.PlaneGeometry(CONFIG.corridor.width, CONFIG.corridor.length),      fixture.add(body, cap);
+
+        material      fixture.position.set(0, height-0.28, lampZ);
+
+    );      corridor.add(fixture);
+
+    floor.rotation.x = -Math.PI / 2;    }
+
+    floor.position.z = -CONFIG.corridor.length / 2;  }
+
+    floor.receiveShadow = true;
+
+    corridor.add(floor);  // Porte condamnée derrière le spawn avec chaînes et cadenas
+
+      const sealedDoorZ = 0.5; // Proche derrière le spawn
+
+    // Plafond  
+
+    const ceiling = new THREE.Mesh(  // Cadre de porte en bois sombre
+
+        new THREE.PlaneGeometry(CONFIG.corridor.width, CONFIG.corridor.length),  const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a1a15, roughness: 0.95, metalness: 0.0 });
+
+        material  const sealedFrameTop = new THREE.Mesh(new THREE.BoxGeometry(width*0.6, 0.15, 0.1), doorFrameMat);
+
+    );  sealedFrameTop.position.set(0, height*0.85, sealedDoorZ);
+
+    ceiling.rotation.x = Math.PI / 2;  const sealedFrameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.12, height*0.9, 0.1), doorFrameMat);
+
+    ceiling.position.y = CONFIG.corridor.height;  sealedFrameLeft.position.set(-width*0.3, height/2, sealedDoorZ);
+
+    ceiling.position.z = -CONFIG.corridor.length / 2;  const sealedFrameRight = sealedFrameLeft.clone();
+
+    corridor.add(ceiling);  sealedFrameRight.position.x = width*0.3;
+
+      corridor.add(sealedFrameTop, sealedFrameLeft, sealedFrameRight);
+
+    // Murs  
+
+    const wallMaterial = material.clone();  // Double porte en bois usé
+
+      const sealedDoorMat = new THREE.MeshStandardMaterial({ 
+
+    const leftWall = new THREE.Mesh(    color: 0x3d2820, 
+
+        new THREE.PlaneGeometry(CONFIG.corridor.length, CONFIG.corridor.height),    map: corridorTex, 
+
+        wallMaterial    roughness: 0.9, 
+
+    );    metalness: 0.0 
+
+    leftWall.rotation.y = Math.PI / 2;  });
+
+    leftWall.position.x = -CONFIG.corridor.width / 2;  const doorWidth = (width*0.6 - 0.12) / 2;
+
+    leftWall.position.y = CONFIG.corridor.height / 2;  const doorHeight = height * 0.85;
+
+    leftWall.position.z = -CONFIG.corridor.length / 2;  const sealedDoorL = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.08), sealedDoorMat);
+
+    corridor.add(leftWall);  sealedDoorL.position.set(-doorWidth/2 - 0.03, height/2, sealedDoorZ);
+
+      const sealedDoorR = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.08), sealedDoorMat);
+
+    const rightWall = leftWall.clone();  sealedDoorR.position.set(doorWidth/2 + 0.03, height/2, sealedDoorZ);
+
+    rightWall.position.x = CONFIG.corridor.width / 2;  corridor.add(sealedDoorL, sealedDoorR);
+
+    rightWall.rotation.y = -Math.PI / 2;  
+
+    corridor.add(rightWall);  // Chaînes qui traversent la porte (réduites à 3 pour performance)
+
+      const chainMat = new THREE.MeshStandardMaterial({ 
+
+    // Mur du fond (avant combat)    color: 0x4a4a4a, 
+
+    const endWall = new THREE.Mesh(    roughness: 0.7, 
+
+        new THREE.PlaneGeometry(CONFIG.corridor.width, CONFIG.corridor.height),    metalness: 0.6 
+
+        wallMaterial  });
+
+    );  for(let i = 0; i < 3; i++) { // Réduit de 4 à 3
+
+    endWall.position.z = -CONFIG.corridor.length;    const chainY = height * 0.3 + i * (height * 0.4 / 2);
+
+    endWall.position.y = CONFIG.corridor.height / 2;    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, width*0.65, 6), chainMat); // Réduit segments de 8 à 6
+
+    corridor.add(endWall);    chain.rotation.z = Math.PI/2;
+
+        chain.position.set(0, chainY, sealedDoorZ - 0.05); // Devant la porte
+
+    scene.add(corridor);    corridor.add(chain);
+
+        
+
+    // Lumières vacillantes    // Maillons de chaîne (réduits)
+
+    addCorridorLights();    for(let j = -2; j <= 2; j++) { // Réduit de -3,3 à -2,2
+
+}      const link = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.015, 6, 10), chainMat); // Réduit segments
+
       link.rotation.y = Math.PI/2;
-      link.position.set(j * 0.3, chainY, sealedDoorZ - 0.05); // Devant la porte
-      corridor.add(link);
-    }
-  }
-  
-  // Cadenas massif au centre
-  const lockMat = new THREE.MeshStandardMaterial({ 
-    color: 0x3a3a3a, 
-    roughness: 0.5, 
-    metalness: 0.8 
-  });
-  const lockBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.18, 0.08), lockMat);
-  lockBody.position.set(0, height/2, sealedDoorZ - 0.04); // Devant la porte
-  corridor.add(lockBody);
-  
-  // Anse du cadenas
-  const lockShackle = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 8, 16, Math.PI), lockMat);
-  lockShackle.rotation.x = Math.PI/2;
-  lockShackle.position.set(0, height/2 + 0.12, sealedDoorZ - 0.04); // Devant la porte
-  corridor.add(lockShackle);
-  
-  // Trou de serrure (détail noir)
-  const keyholeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  const keyhole = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), keyholeMat);
-  keyhole.position.set(0, height/2 - 0.02, sealedDoorZ - 0.03); // Devant la porte
-  corridor.add(keyhole);
-  
-  // Sol derrière la porte avec texture unifiée
-  const backFloor = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 3), corridorMat);
-  backFloor.rotation.x = -Math.PI/2;
-  backFloor.position.set(0, 0, sealedDoorZ + 1.5);
-  corridor.add(backFloor);
-  
-  // Murs latéraux derrière la porte scellée (collision)
-  const backLeftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, 3), corridorMat);
-  backLeftWall.position.set(-width/2, height/2, sealedDoorZ + 1.5);
-  corridor.add(backLeftWall);
-  
-  const backRightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, 3), corridorMat);
-  backRightWall.position.set(width/2, height/2, sealedDoorZ + 1.5);
-  corridor.add(backRightWall);
-  
+
+function addCorridorLights() {      link.position.set(j * 0.3, chainY, sealedDoorZ - 0.05); // Devant la porte
+
+    // Lumière ambiante très faible      corridor.add(link);
+
+    const ambient = new THREE.AmbientLight(0x4a3a3a, 0.1);    }
+
+    scene.add(ambient);  }
+
+      
+
+    // Lumières ponctuelles le long du couloir  // Cadenas massif au centre
+
+    const lightCount = 8;  const lockMat = new THREE.MeshStandardMaterial({ 
+
+    const lights = [];    color: 0x3a3a3a, 
+
+        roughness: 0.5, 
+
+    for (let i = 0; i < lightCount; i++) {    metalness: 0.8 
+
+        const light = new THREE.PointLight(0xff8844, 1.5, 12, 2);  });
+
+        light.position.set(  const lockBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.18, 0.08), lockMat);
+
+            0,  lockBody.position.set(0, height/2, sealedDoorZ - 0.04); // Devant la porte
+
+            CONFIG.corridor.height - 0.3,  corridor.add(lockBody);
+
+            -i * (CONFIG.corridor.length / lightCount) - 2  
+
+        );  // Anse du cadenas
+
+        light.castShadow = true;  const lockShackle = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 8, 16, Math.PI), lockMat);
+
+        light.shadow.bias = -0.001;  lockShackle.rotation.x = Math.PI/2;
+
+        scene.add(light);  lockShackle.position.set(0, height/2 + 0.12, sealedDoorZ - 0.04); // Devant la porte
+
+        lights.push(light);  corridor.add(lockShackle);
+
+          
+
+        // Ampoule visible  // Trou de serrure (détail noir)
+
+        const bulbGeo = new THREE.SphereGeometry(0.1, 8, 8);  const keyholeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+        const bulbMat = new THREE.MeshBasicMaterial({ color: 0xff6633 });  const keyhole = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), keyholeMat);
+
+        const bulb = new THREE.Mesh(bulbGeo, bulbMat);  keyhole.position.set(0, height/2 - 0.02, sealedDoorZ - 0.03); // Devant la porte
+
+        bulb.position.copy(light.position);  corridor.add(keyhole);
+
+        scene.add(bulb);  
+
+    }  // Sol derrière la porte avec texture unifiée
+
+      const backFloor = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 3), corridorMat);
+
+    // Animation vacillement  backFloor.rotation.x = -Math.PI/2;
+
+    let time = 0;  backFloor.position.set(0, 0, sealedDoorZ + 1.5);
+
+    setInterval(() => {  corridor.add(backFloor);
+
+        time += 0.1;  
+
+        lights.forEach((light, i) => {  // Murs latéraux derrière la porte scellée (collision)
+
+            if (Math.random() < 0.05) {  const backLeftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, 3), corridorMat);
+
+                light.intensity = Math.random() * 2;  backLeftWall.position.set(-width/2, height/2, sealedDoorZ + 1.5);
+
+            } else {  corridor.add(backLeftWall);
+
+                light.intensity += (1.5 - light.intensity) * 0.1;  
+
+            }  const backRightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, 3), corridorMat);
+
+        });  backRightWall.position.set(width/2, height/2, sealedDoorZ + 1.5);
+
+    }, 100);  corridor.add(backRightWall);
+
+}  
+
   // Plafond derrière la porte
-  const backCeiling = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 3), corridorMat);
-  backCeiling.rotation.x = Math.PI/2;
-  backCeiling.position.set(0, height, sealedDoorZ + 1.5);
-  corridor.add(backCeiling);
-  
-  // Mur de fond derrière la porte (collision)
-  const backWallWidth = width * 1.5;
-  const backWallHeight = height * 1.5;
-  const backWall = new THREE.Mesh(new THREE.BoxGeometry(backWallWidth, backWallHeight, wallThickness), corridorMat);
-  backWall.position.set(0, backWallHeight/2, sealedDoorZ + 0.01);
-  corridor.add(backWall);
 
-  // Mur de fin du couloir (au fond)
-  const corridorEndZ = -(segments-1)*length;
-  const endWall = new THREE.Mesh(new THREE.BoxGeometry(width, height, wallThickness), corridorMat);
-  endWall.position.set(0, height/2, corridorEndZ);
-  corridor.add(endWall);
+// ========================================  const backCeiling = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 3), corridorMat);
 
-  // Ukulélé à récupérer (style Risk of Rain 2 - low poly coloré)
-  function makeUkulele() {
-    const group = new THREE.Group();
-    
-    // Corps simplifié en bois clair (style RoR2)
-    const bodyMat = new THREE.MeshStandardMaterial({ 
-      color: 0xf4b860,
-      roughness: 0.7, 
-      metalness: 0.0,
-      flatShading: true // Low poly look
-    });
-    
-    // Corps principal (box arrondi)
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.25, 0.18, 0.08, 1, 1, 1),
-      bodyMat
-    );
-    body.position.set(0, 0, 0);
-    
-    // Table d'harmonie (cercle plat orange)
-    const soundboard = new THREE.Mesh(
-      new THREE.CircleGeometry(0.08, 8),
-      new THREE.MeshStandardMaterial({ 
-        color: 0xe89a3c, 
-        roughness: 0.8,
-        flatShading: true 
-      })
-    );
-    soundboard.rotation.y = Math.PI / 2;
-    soundboard.position.x = 0.041;
-    
-    // Trou de résonance (petit cercle noir)
+// COUTEAU (OBJET À RAMASSER)  backCeiling.rotation.x = Math.PI/2;
+
+// ========================================  backCeiling.position.set(0, height, sealedDoorZ + 1.5);
+
+function createKnife() {  corridor.add(backCeiling);
+
+    const knifeGroup = new THREE.Group();  
+
+      // Mur de fond derrière la porte (collision)
+
+    // Lame  const backWallWidth = width * 1.5;
+
+    const bladeGeo = new THREE.BoxGeometry(0.05, 0.3, 0.02);  const backWallHeight = height * 1.5;
+
+    const bladeMat = new THREE.MeshStandardMaterial({  const backWall = new THREE.Mesh(new THREE.BoxGeometry(backWallWidth, backWallHeight, wallThickness), corridorMat);
+
+        color: 0xaaaaaa,  backWall.position.set(0, backWallHeight/2, sealedDoorZ + 0.01);
+
+        metalness: 0.9,  corridor.add(backWall);
+
+        roughness: 0.1
+
+    });  // Mur de fin du couloir (au fond)
+
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);  const corridorEndZ = -(segments-1)*length;
+
+    blade.position.y = 0.15;  const endWall = new THREE.Mesh(new THREE.BoxGeometry(width, height, wallThickness), corridorMat);
+
+    knifeGroup.add(blade);  endWall.position.set(0, height/2, corridorEndZ);
+
+      corridor.add(endWall);
+
+    // Manche
+
+    const handleGeo = new THREE.BoxGeometry(0.04, 0.12, 0.025);  // Ukulélé à récupérer (style Risk of Rain 2 - low poly coloré)
+
+    const handleMat = new THREE.MeshStandardMaterial({  function makeUkulele() {
+
+        color: 0x2a1a0a,    const group = new THREE.Group();
+
+        roughness: 0.8    
+
+    });    // Corps simplifié en bois clair (style RoR2)
+
+    const handle = new THREE.Mesh(handleGeo, handleMat);    const bodyMat = new THREE.MeshStandardMaterial({ 
+
+    handle.position.y = -0.06;      color: 0xf4b860,
+
+    knifeGroup.add(handle);      roughness: 0.7, 
+
+          metalness: 0.0,
+
+    // Position dans le couloir      flatShading: true // Low poly look
+
+    knifeGroup.position.set(0, 1.2, -CONFIG.corridor.length * 0.7);    });
+
+    knifeGroup.rotation.z = Math.PI / 4;    
+
+        // Corps principal (box arrondi)
+
+    // Lumière autour du couteau    const body = new THREE.Mesh(
+
+    const knifeLight = new THREE.PointLight(0xffaa00, 2, 5);      new THREE.BoxGeometry(0.25, 0.18, 0.08, 1, 1, 1),
+
+    knifeLight.position.copy(knifeGroup.position);      bodyMat
+
+    scene.add(knifeLight);    );
+
+        body.position.set(0, 0, 0);
+
+    scene.add(knifeGroup);    
+
+        // Table d'harmonie (cercle plat orange)
+
+    // Animation rotation    const soundboard = new THREE.Mesh(
+
+    const animateKnife = () => {      new THREE.CircleGeometry(0.08, 8),
+
+        if (!gameState.hasKnife) {      new THREE.MeshStandardMaterial({ 
+
+            knifeGroup.rotation.y += 0.02;        color: 0xe89a3c, 
+
+            knifeGroup.position.y = 1.2 + Math.sin(Date.now() * 0.003) * 0.1;        roughness: 0.8,
+
+            requestAnimationFrame(animateKnife);        flatShading: true 
+
+        }      })
+
+    };    );
+
+    animateKnife();    soundboard.rotation.y = Math.PI / 2;
+
+        soundboard.position.x = 0.041;
+
+    return { knife: knifeGroup, light: knifeLight };    
+
+}    // Trou de résonance (petit cercle noir)
+
     const hole = new THREE.Mesh(
-      new THREE.CircleGeometry(0.02, 6),
-      new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
-    );
-    hole.rotation.y = Math.PI / 2;
-    hole.position.x = 0.042;
-    
-    // Manche (box long brun foncé)
-    const neckMat = new THREE.MeshStandardMaterial({ 
-      color: 0x6b4423, 
-      roughness: 0.8,
-      flatShading: true
-    });
-    const neck = new THREE.Mesh(
-      new THREE.BoxGeometry(0.35, 0.03, 0.025, 1, 1, 1),
-      neckMat
-    );
-    neck.position.set(-0.175, 0.09, 0);
-    
-    // Tête du manche (triangle stylisé)
-    const headstock = new THREE.Mesh(
-      new THREE.BoxGeometry(0.06, 0.05, 0.02, 1, 1, 1),
-      neckMat
-    );
-    headstock.position.set(-0.35, 0.09, 0);
-    
-    // 4 cordes (lignes blanches très fines)
-    const stringMat = new THREE.MeshStandardMaterial({ 
-      color: 0xf0f0f0, 
-      roughness: 0.4,
-      metalness: 0.5
-    });
-    for(let i = 0; i < 4; i++) {
-      const string = new THREE.Mesh(
-        new THREE.BoxGeometry(0.35, 0.003, 0.003, 1, 1, 1),
-        stringMat
-      );
-      string.position.set(-0.175, 0.09, -0.012 + i * 0.008);
-      group.add(string);
-    }
-    
-    // Chevalet (petit bloc marron)
-    const bridge = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04, 0.01, 0.03, 1, 1, 1),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x3a2010,
-        flatShading: true 
-      })
-    );
-    bridge.position.set(0.08, -0.08, 0);
-    
-    // Mécaniques simplifiées (4 petits cubes gris)
-    const tunerMat = new THREE.MeshStandardMaterial({ 
-      color: 0xaaaaaa, 
-      metalness: 0.7,
-      roughness: 0.3,
-      flatShading: true
-    });
-    for(let i = 0; i < 4; i++) {
-      const tuner = new THREE.Mesh(
-        new THREE.BoxGeometry(0.015, 0.015, 0.015, 1, 1, 1),
-        tunerMat
-      );
-      tuner.position.set(-0.35, 0.09 + (i < 2 ? 0.015 : -0.015), -0.012 + (i % 2) * 0.008);
-      group.add(tuner);
-    }
-    
-    group.add(body, soundboard, hole, neck, headstock, bridge);
-    group.rotation.y = Math.PI / 4;
-    return group;
-  }
 
-  const UKULELE_Z = -(segments/2) * length; // Au milieu du couloir
-  const ukulele = makeUkulele();
-  ukulele.position.set(0.3, 0.6, UKULELE_Z);
-  corridor.add(ukulele);
-  
-  // Lumière pour l'ukulélé
-  const ukuleleLight = new THREE.PointLight(0xffd700, 2.0, 8);
-  ukuleleLight.position.copy(ukulele.position);
-  corridor.add(ukuleleLight);
-  
-  ukulele.userData.baseY = ukulele.position.y;
-  
-  // Éclairage ambiant optimisé
-  const ambient = new THREE.AmbientLight(0x6a554a, 0.8);
-  scene.add(ambient);
-  const startLamp = new THREE.PointLight(0xd4695a, 3.5, 20, 1.6);
-  startLamp.position.set(0, 2.2, -2);
-  startLamp.userData.baseIntensity = 3.5;
-  startLamp.userData.flickerSpeed = 0.35;
-  scene.add(startLamp);
-  const hemi = new THREE.HemisphereLight(0x8a6a5a, 0x3a2a20, 0.6);
-  scene.add(hemi);
+// ========================================      new THREE.CircleGeometry(0.02, 6),
 
-  // Particules de poussière retirées pour optimisation
+// SYSTÈME DE COMBAT UNDERTALE      new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
 
-  // Simple collision with walls (AABB inside corridor)
-  let halfW = (width/2) - 0.4;
+// ========================================    );
 
-  let hasUkulele = false;
+class CombatSystem {    hole.rotation.y = Math.PI / 2;
 
-  function setPrompt(text){
-    if(!text){ promptEl.hidden = true; return; }
-    promptEl.textContent = text; promptEl.hidden = false;
-  }
-  function flashMsg(text, ms=1400){
-    msgEl.textContent = text; msgEl.hidden = false; setTimeout(()=>{ msgEl.hidden = true; }, ms);
-  }
+    constructor() {    hole.position.x = 0.042;
 
-  // Animation loop
-  let prev = performance.now();
-  let gameMode = 'explore'; // 'explore' | 'fight'
-  let frameCount = 0; // Pour optimiser certaines animations
+        this.canvas = document.getElementById('combat-canvas');    
 
-  function animate(){
-    requestAnimationFrame(animate);
-    const now = performance.now();
-    const dt = Math.min((now - prev)/1000, 0.05); // clamp delta
-    prev = now;
-    frameCount++;
+        this.ctx = this.canvas.getContext('2d');    // Manche (box long brun foncé)
 
-    // Flicker + clignotement visible sur les lampes (tous les 4 frames - optimisé)
-    if(frameCount % 4 === 0) { // Changé de 3 à 4
-      corridor.children.forEach(obj=>{
-        if(obj.isPointLight){
-          const flicker = obj.userData.flickerSpeed || 0.3;
-          const base = obj.userData.baseIntensity || 1.8;
-          // Blink occasional blackout
-          const nowMs = performance.now();
-          if(!obj.userData.blinkUntil && Math.random() < 0.003){ // Réduit de 0.004 à 0.003
-            obj.userData.blinkUntil = nowMs + 80 + Math.random()*180; // 80-260ms
-          }
-          if(obj.userData.blinkUntil && nowMs < obj.userData.blinkUntil){
-            obj.intensity += (0 - obj.intensity) * 0.6; // rapid drop
-          } else {
-            obj.userData.blinkUntil = null;
-            if(Math.random() < flicker * dt * 30){
-              obj.intensity = base * (0.3 + Math.random()*0.7);
-            } else {
-              obj.intensity += (base - obj.intensity) * dt * 3;
+        this.screen = document.getElementById('combat-screen');    const neckMat = new THREE.MeshStandardMaterial({ 
+
+        this.message = document.getElementById('combat-message');      color: 0x6b4423, 
+
+              roughness: 0.8,
+
+        this.box = {      flatShading: true
+
+            x: 80,    });
+
+            y: 80,    const neck = new THREE.Mesh(
+
+            width: 480,      new THREE.BoxGeometry(0.35, 0.03, 0.025, 1, 1, 1),
+
+            height: 320      neckMat
+
+        };    );
+
+            neck.position.set(-0.175, 0.09, 0);
+
+        this.player = {    
+
+            x: this.box.x + this.box.width / 2,    // Tête du manche (triangle stylisé)
+
+            y: this.box.y + this.box.height / 2,    const headstock = new THREE.Mesh(
+
+            size: 8,      new THREE.BoxGeometry(0.06, 0.05, 0.02, 1, 1, 1),
+
+            speed: CONFIG.combat.playerSpeed      neckMat
+
+        };    );
+
+            headstock.position.set(-0.35, 0.09, 0);
+
+        this.bullets = [];    
+
+        this.time = 0;    // 4 cordes (lignes blanches très fines)
+
+        this.dodgeTime = CONFIG.combat.dodgeTime;    const stringMat = new THREE.MeshStandardMaterial({ 
+
+        this.active = false;      color: 0xf0f0f0, 
+
+              roughness: 0.4,
+
+        this.keys = {      metalness: 0.5
+
+            up: false,    });
+
+            down: false,    for(let i = 0; i < 4; i++) {
+
+            left: false,      const string = new THREE.Mesh(
+
+            right: false        new THREE.BoxGeometry(0.35, 0.003, 0.003, 1, 1, 1),
+
+        };        stringMat
+
+              );
+
+        this.setupControls();      string.position.set(-0.175, 0.09, -0.012 + i * 0.008);
+
+    }      group.add(string);
+
+        }
+
+    setupControls() {    
+
+        document.addEventListener('keydown', (e) => {    // Chevalet (petit bloc marron)
+
+            if (!this.active) return;    const bridge = new THREE.Mesh(
+
+            switch(e.code) {      new THREE.BoxGeometry(0.04, 0.01, 0.03, 1, 1, 1),
+
+                case 'ArrowUp': case 'KeyW': case 'KeyZ': this.keys.up = true; break;      new THREE.MeshStandardMaterial({ 
+
+                case 'ArrowDown': case 'KeyS': this.keys.down = true; break;        color: 0x3a2010,
+
+                case 'ArrowLeft': case 'KeyA': case 'KeyQ': this.keys.left = true; break;        flatShading: true 
+
+                case 'ArrowRight': case 'KeyD': this.keys.right = true; break;      })
+
+            }    );
+
+        });    bridge.position.set(0.08, -0.08, 0);
+
+            
+
+        document.addEventListener('keyup', (e) => {    // Mécaniques simplifiées (4 petits cubes gris)
+
+            if (!this.active) return;    const tunerMat = new THREE.MeshStandardMaterial({ 
+
+            switch(e.code) {      color: 0xaaaaaa, 
+
+                case 'ArrowUp': case 'KeyW': case 'KeyZ': this.keys.up = false; break;      metalness: 0.7,
+
+                case 'ArrowDown': case 'KeyS': this.keys.down = false; break;      roughness: 0.3,
+
+                case 'ArrowLeft': case 'KeyA': case 'KeyQ': this.keys.left = false; break;      flatShading: true
+
+                case 'ArrowRight': case 'KeyD': this.keys.right = false; break;    });
+
+            }    for(let i = 0; i < 4; i++) {
+
+        });      const tuner = new THREE.Mesh(
+
+    }        new THREE.BoxGeometry(0.015, 0.015, 0.015, 1, 1, 1),
+
+            tunerMat
+
+    start() {      );
+
+        this.active = true;      tuner.position.set(-0.35, 0.09 + (i < 2 ? 0.015 : -0.015), -0.012 + (i % 2) * 0.008);
+
+        this.screen.hidden = false;      group.add(tuner);
+
+        this.message.textContent = "* Une entité vous attaque ! Esquivez !";    }
+
+        controls.unlock();    
+
+        this.loop();    group.add(body, soundboard, hole, neck, headstock, bridge);
+
+    }    group.rotation.y = Math.PI / 4;
+
+        return group;
+
+    spawnBullets() {  }
+
+        // Pattern 1: Vagues horizontales
+
+        if (this.time % 2 < 0.1) {  const UKULELE_Z = -(segments/2) * length; // Au milieu du couloir
+
+            const side = Math.random() < 0.5 ? 'left' : 'right';  const ukulele = makeUkulele();
+
+            const y = this.box.y + Math.random() * this.box.height;  ukulele.position.set(0.3, 0.6, UKULELE_Z);
+
+            this.bullets.push({  corridor.add(ukulele);
+
+                x: side === 'left' ? this.box.x - 20 : this.box.x + this.box.width + 20,  
+
+                y: y,  // Lumière pour l'ukulélé
+
+                vx: side === 'left' ? CONFIG.combat.bulletSpeed : -CONFIG.combat.bulletSpeed,  const ukuleleLight = new THREE.PointLight(0xffd700, 2.0, 8);
+
+                vy: 0,  ukuleleLight.position.copy(ukulele.position);
+
+                size: 12  corridor.add(ukuleleLight);
+
+            });  
+
+        }  ukulele.userData.baseY = ukulele.position.y;
+
+          
+
+        // Pattern 2: Pluie verticale  // Éclairage ambiant optimisé
+
+        if (Math.random() < 0.02) {  const ambient = new THREE.AmbientLight(0x6a554a, 0.8);
+
+            for (let i = 0; i < 3; i++) {  scene.add(ambient);
+
+                this.bullets.push({  const startLamp = new THREE.PointLight(0xd4695a, 3.5, 20, 1.6);
+
+                    x: this.box.x + Math.random() * this.box.width,  startLamp.position.set(0, 2.2, -2);
+
+                    y: this.box.y - 20,  startLamp.userData.baseIntensity = 3.5;
+
+                    vx: 0,  startLamp.userData.flickerSpeed = 0.35;
+
+                    vy: CONFIG.combat.bulletSpeed * 0.8,  scene.add(startLamp);
+
+                    size: 10  const hemi = new THREE.HemisphereLight(0x8a6a5a, 0x3a2a20, 0.6);
+
+                });  scene.add(hemi);
+
             }
-          }
-        }
-      });
+
+        }  // Particules de poussière retirées pour optimisation
+
     }
 
-    // (Particules retirées)
+      // Simple collision with walls (AABB inside corridor)
 
-  // ZQSD (et WASD) movement in local camera space when locked and exploring
-    if(controls.isLocked && gameMode === 'explore'){
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      dir.y = 0; dir.normalize(); // forward on XZ plane
-      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).negate();
+    update(dt) {  let halfW = (width/2) - 0.4;
 
-      let vx = 0, vz = 0;
-      if(moveForward) { vx += dir.x; vz += dir.z; }
-      if(moveBackward){ vx -= dir.x; vz -= dir.z; }
-      if(moveLeft)    { vx += right.x; vz += right.z; }
-      if(moveRight)   { vx -= right.x; vz -= right.z; }
+        this.time += dt;
 
-  const mag = Math.hypot(vx, vz) || 1;
-  const s = speed * (runPressed ? 1.9 : 1.0);
-  velocity.set((vx/mag)*s*dt, 0, (vz/mag)*s*dt);
+        this.dodgeTime -= dt;  let hasUkulele = false;
 
-      camera.position.x += velocity.x;
-      camera.position.z += velocity.z;
+        
 
-      // Clamp within corridor
-      camera.position.x = Math.max(-halfW, Math.min(halfW, camera.position.x));
-      
-      // Empêcher de traverser la porte scellée (collision arrière)
-      if(camera.position.z > sealedDoorZ - 0.3) {
-        camera.position.z = sealedDoorZ - 0.3;
-      }
-      
-      // Déclencher le combat au milieu du couloir (si ukulélé récupéré)
-      const combatTriggerZ = -(segments/2 + 2) * length;
-      if(hasUkulele && camera.position.z < combatTriggerZ && gameMode === 'explore') {
-        startFight();
-      }
-    }
+        if (this.dodgeTime <= 0) {  function setPrompt(text){
 
-    // Animation de l'ukulélé
-    if(ukulele && !hasUkulele) {
-      ukulele.rotation.y += dt * 0.8;
-      ukulele.position.y = ukulele.userData.baseY + Math.sin(now * 0.002) * 0.04;
-      
-      // Lumière pulsante
-      const glowMat = ukuleleLight.color;
-      ukuleleLight.intensity = 2.0 + 0.3 * Math.sin(now * 0.004);
-      
-      // Vérifier proximité pour ramassage
-      const d = camera.position.distanceTo(ukulele.position);
-      if(d < 2.0) {
-        setPrompt('Appuyez sur E pour prendre l\'ukulélé');
-        if(interactPressed) {
-          hasUkulele = true;
-          corridor.remove(ukulele);
-          corridor.remove(ukuleleLight);
-          flashMsg('♪ Vous avez récupéré l\'ukulélé ! ♪', 2000);
-          setPrompt('');
-          interactPressed = false;
-        }
-      } else {
-        if(msgEl.textContent.includes('ukulélé')) setPrompt('');
-      }
-    }
-    
-    interactPressed = false;
+            this.win();    if(!text){ promptEl.hidden = true; return; }
 
-    renderer.render(scene, camera);
-  }
-  animate();
+            return;    promptEl.textContent = text; promptEl.hidden = false;
 
-  function onResize(){
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+        }  }
+
+          function flashMsg(text, ms=1400){
+
+        // Déplacement joueur    msgEl.textContent = text; msgEl.hidden = false; setTimeout(()=>{ msgEl.hidden = true; }, ms);
+
+        if (this.keys.up) this.player.y -= this.player.speed * dt;  }
+
+        if (this.keys.down) this.player.y += this.player.speed * dt;
+
+        if (this.keys.left) this.player.x -= this.player.speed * dt;  // Animation loop
+
+        if (this.keys.right) this.player.x += this.player.speed * dt;  let prev = performance.now();
+
+          let gameMode = 'explore'; // 'explore' | 'fight'
+
+        // Contrainte dans la boîte  let frameCount = 0; // Pour optimiser certaines animations
+
+        this.player.x = Math.max(this.box.x + this.player.size, Math.min(this.box.x + this.box.width - this.player.size, this.player.x));
+
+        this.player.y = Math.max(this.box.y + this.player.size, Math.min(this.box.y + this.box.height - this.player.size, this.player.y));  function animate(){
+
+            requestAnimationFrame(animate);
+
+        // Spawn & update bullets    const now = performance.now();
+
+        this.spawnBullets();    const dt = Math.min((now - prev)/1000, 0.05); // clamp delta
+
+            prev = now;
+
+        for (let i = this.bullets.length - 1; i >= 0; i--) {    frameCount++;
+
+            const b = this.bullets[i];
+
+            b.x += b.vx * dt;    // Flicker + clignotement visible sur les lampes (tous les 4 frames - optimisé)
+
+            b.y += b.vy * dt;    if(frameCount % 4 === 0) { // Changé de 3 à 4
+
+                  corridor.children.forEach(obj=>{
+
+            // Suppression hors écran        if(obj.isPointLight){
+
+            if (b.x < -50 || b.x > this.canvas.width + 50 ||           const flicker = obj.userData.flickerSpeed || 0.3;
+
+                b.y < -50 || b.y > this.canvas.height + 50) {          const base = obj.userData.baseIntensity || 1.8;
+
+                this.bullets.splice(i, 1);          // Blink occasional blackout
+
+                continue;          const nowMs = performance.now();
+
+            }          if(!obj.userData.blinkUntil && Math.random() < 0.003){ // Réduit de 0.004 à 0.003
+
+                        obj.userData.blinkUntil = nowMs + 80 + Math.random()*180; // 80-260ms
+
+            // Collision avec joueur          }
+
+            const dx = b.x - this.player.x;          if(obj.userData.blinkUntil && nowMs < obj.userData.blinkUntil){
+
+            const dy = b.y - this.player.y;            obj.intensity += (0 - obj.intensity) * 0.6; // rapid drop
+
+            const dist = Math.sqrt(dx * dx + dy * dy);          } else {
+
+                        obj.userData.blinkUntil = null;
+
+            if (dist < this.player.size + b.size / 2) {            if(Math.random() < flicker * dt * 30){
+
+                this.hit();              obj.intensity = base * (0.3 + Math.random()*0.7);
+
+                this.bullets.splice(i, 1);            } else {
+
+            }              obj.intensity += (base - obj.intensity) * dt * 3;
+
+        }            }
+
+    }          }
+
+            }
+
+    draw() {      });
+
+        const ctx = this.ctx;    }
+
+        
+
+        // Fond noir    // (Particules retirées)
+
+        ctx.fillStyle = '#000';
+
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);  // ZQSD (et WASD) movement in local camera space when locked and exploring
+
+            if(controls.isLocked && gameMode === 'explore'){
+
+        // Boîte de combat      const dir = new THREE.Vector3();
+
+        ctx.strokeStyle = '#fff';      camera.getWorldDirection(dir);
+
+        ctx.lineWidth = 4;      dir.y = 0; dir.normalize(); // forward on XZ plane
+
+        ctx.strokeRect(this.box.x, this.box.y, this.box.width, this.box.height);      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).negate();
+
+        
+
+        // Joueur (cœur rouge)      let vx = 0, vz = 0;
+
+        ctx.fillStyle = '#ff0000';      if(moveForward) { vx += dir.x; vz += dir.z; }
+
+        ctx.beginPath();      if(moveBackward){ vx -= dir.x; vz -= dir.z; }
+
+        ctx.moveTo(this.player.x, this.player.y - this.player.size / 2);      if(moveLeft)    { vx += right.x; vz += right.z; }
+
+        ctx.lineTo(this.player.x - this.player.size / 2, this.player.y);      if(moveRight)   { vx -= right.x; vz -= right.z; }
+
+        ctx.lineTo(this.player.x, this.player.y + this.player.size);
+
+        ctx.lineTo(this.player.x + this.player.size / 2, this.player.y);  const mag = Math.hypot(vx, vz) || 1;
+
+        ctx.closePath();  const s = speed * (runPressed ? 1.9 : 1.0);
+
+        ctx.fill();  velocity.set((vx/mag)*s*dt, 0, (vz/mag)*s*dt);
+
+        
+
+        // Bullets (cercles blancs)      camera.position.x += velocity.x;
+
+        ctx.fillStyle = '#fff';      camera.position.z += velocity.z;
+
+        this.bullets.forEach(b => {
+
+            ctx.beginPath();      // Clamp within corridor
+
+            ctx.arc(b.x, b.y, b.size / 2, 0, Math.PI * 2);      camera.position.x = Math.max(-halfW, Math.min(halfW, camera.position.x));
+
+            ctx.fill();      
+
+        });      // Empêcher de traverser la porte scellée (collision arrière)
+
+              if(camera.position.z > sealedDoorZ - 0.3) {
+
+        // Timer        camera.position.z = sealedDoorZ - 0.3;
+
+        ctx.fillStyle = '#ff0';      }
+
+        ctx.font = 'bold 24px "Courier New"';      
+
+        ctx.fillText(`Temps: ${Math.ceil(this.dodgeTime)}s`, 20, 40);      // Déclencher le combat au milieu du couloir (si ukulélé récupéré)
+
+    }      const combatTriggerZ = -(segments/2 + 2) * length;
+
+          if(hasUkulele && camera.position.z < combatTriggerZ && gameMode === 'explore') {
+
+    hit() {        startFight();
+
+        gameState.playerHp -= 5;      }
+
+        updateHP();    }
+
+        
+
+        if (gameState.playerHp <= 0) {    // Animation de l'ukulélé
+
+            this.gameOver();    if(ukulele && !hasUkulele) {
+
+        }      ukulele.rotation.y += dt * 0.8;
+
+    }      ukulele.position.y = ukulele.userData.baseY + Math.sin(now * 0.002) * 0.04;
+
+          
+
+    win() {      // Lumière pulsante
+
+        this.active = false;      const glowMat = ukuleleLight.color;
+
+        this.message.textContent = "* Vous avez survécu...";      ukuleleLight.intensity = 2.0 + 0.3 * Math.sin(now * 0.004);
+
+        setTimeout(() => {      
+
+            this.screen.hidden = true;      // Vérifier proximité pour ramassage
+
+            showMessage("Vous avez vaincu l'entité...", 3000);      const d = camera.position.distanceTo(ukulele.position);
+
+        }, 2000);      if(d < 2.0) {
+
+    }        setPrompt('Appuyez sur E pour prendre l\'ukulélé');
+
+            if(interactPressed) {
+
+    gameOver() {          hasUkulele = true;
+
+        this.active = false;          corridor.remove(ukulele);
+
+        this.message.textContent = "* GAME OVER *";          corridor.remove(ukuleleLight);
+
+        setTimeout(() => {          flashMsg('♪ Vous avez récupéré l\'ukulélé ! ♪', 2000);
+
+            location.reload();          setPrompt('');
+
+        }, 3000);          interactPressed = false;
+
+    }        }
+
+          } else {
+
+    loop() {        if(msgEl.textContent.includes('ukulélé')) setPrompt('');
+
+        if (!this.active) return;      }
+
+            }
+
+        const now = performance.now();    
+
+        const dt = Math.min((now - (this.lastTime || now)) / 1000, 0.05);    interactPressed = false;
+
+        this.lastTime = now;
+
+            renderer.render(scene, camera);
+
+        this.update(dt);  }
+
+        this.draw();  animate();
+
+        
+
+        requestAnimationFrame(() => this.loop());  function onResize(){
+
+    }    camera.aspect = window.innerWidth / window.innerHeight;
+
+}    camera.updateProjectionMatrix();
+
     renderer.setSize(window.innerWidth, window.innerHeight);
-  }
+
+const combat = new CombatSystem();  }
+
   window.addEventListener('resize', onResize);
 
-  // Pas de HUD au démarrage: ne pas afficher de message initial
-  // (HUD uniquement pendant le combat)
-  try{ msgEl.hidden = true; promptEl.hidden = true; }catch(e){}
+// ========================================
 
-  // =============================
-  // Settings wiring
-  // =============================
+// UI & HELPERS  // Pas de HUD au démarrage: ne pas afficher de message initial
+
+// ========================================  // (HUD uniquement pendant le combat)
+
+function showPrompt(text) {  try{ msgEl.hidden = true; promptEl.hidden = true; }catch(e){}
+
+    const prompt = document.getElementById('prompt');
+
+    prompt.textContent = text;  // =============================
+
+    prompt.hidden = false;  // Settings wiring
+
+}  // =============================
+
   uiSpeed?.addEventListener('input', ()=>{ speed = parseFloat(uiSpeed.value); });
-  uiFov?.addEventListener('input', ()=>{ camera.fov = parseFloat(uiFov.value); camera.updateProjectionMatrix(); });
-  uiFog?.addEventListener('input', ()=>{ const d = parseFloat(uiFog.value); scene.fog.density = d; });
-  uiAmb?.addEventListener('input', ()=>{ ambient.intensity = parseFloat(uiAmb.value); });
+
+function hidePrompt() {  uiFov?.addEventListener('input', ()=>{ camera.fov = parseFloat(uiFov.value); camera.updateProjectionMatrix(); });
+
+    document.getElementById('prompt').hidden = true;  uiFog?.addEventListener('input', ()=>{ const d = parseFloat(uiFog.value); scene.fog.density = d; });
+
+}  uiAmb?.addEventListener('input', ()=>{ ambient.intensity = parseFloat(uiAmb.value); });
+
   uiXhVis?.addEventListener('change', ()=>{ document.getElementById('crosshair').style.display = uiXhVis.checked ? 'block' : 'none'; });
-  uiXhColor?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-color', uiXhColor.value); });
-  uiXhSize?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-size', uiXhSize.value+'px'); });
-  resetPos?.addEventListener('click', ()=>{ camera.position.set(0,0.8,0); }); // Hauteur ajustée
+
+function showMessage(text, duration = 2000) {  uiXhColor?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-color', uiXhColor.value); });
+
+    const msg = document.getElementById('message');  uiXhSize?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-size', uiXhSize.value+'px'); });
+
+    msg.textContent = text;  resetPos?.addEventListener('click', ()=>{ camera.position.set(0,0.8,0); }); // Hauteur ajustée
+
+    msg.hidden = false;
+
+    setTimeout(() => { msg.hidden = true; }, duration);  // =============================
+
+}  // Simple Undertale-like fight EN PHASES
 
   // =============================
-  // Simple Undertale-like fight EN PHASES
-  // =============================
-  let fightRunning = false;
-  function startFight(){
-    gameMode = 'fight';
-    fightRunning = true;
-    controls.unlock();
-    fightWrap.hidden = false;
+
+function updateHP() {  let fightRunning = false;
+
+    const hpFill = document.getElementById('hp-fill');  function startFight(){
+
+    const hpText = document.getElementById('hp-text');    gameMode = 'fight';
+
+    const percent = (gameState.playerHp / CONFIG.player.maxHp) * 100;    fightRunning = true;
+
+    hpFill.style.width = percent + '%';    controls.unlock();
+
+    hpText.textContent = `${gameState.playerHp} / ${CONFIG.player.maxHp}`;    fightWrap.hidden = false;
+
+}
 
     const ctx = fightCanvas.getContext('2d');
-    const W = fightCanvas.width, H = fightCanvas.height;
-    const box = { x:20, y:24, w:W-40, h:H-44 };
-    const player = { x:W/2, y:H/2, r:4, speed:120 };
-    let hp = 5;
-    let bossHP = 3; // Boss meurt après 3 attaques
+
+// ========================================    const W = fightCanvas.width, H = fightCanvas.height;
+
+// BOUCLE PRINCIPALE    const box = { x:20, y:24, w:W-40, h:H-44 };
+
+// ========================================    const player = { x:W/2, y:H/2, r:4, speed:120 };
+
+let lastTime = performance.now();    let hp = 5;
+
+let knifeObject = null;    let bossHP = 3; // Boss meurt après 3 attaques
+
     const maxBossHP = 3;
-    let phase = 'dodge'; // 'dodge' ou 'attack'
-    let phaseTimer = 15; // 15 secondes d'esquive
-    const bullets = [];
-    const telegraphs = [];
-    let iframes = 0;
-    let attackReady = false;
 
-    // Spawn simple horizontal bullets
-    function spawnWave(){
-      const dir = Math.random()<0.5 ? -1 : 1;
-      const y = box.y + 8 + Math.random()*(box.h-16);
-      bullets.push({ x: dir<0? box.x+box.w+10 : box.x-10, y, vx: 80*dir, vy: 0, w: 10, h: 2 });
-    }
+function init() {    let phase = 'dodge'; // 'dodge' ou 'attack'
 
-      function spawnVerticalWall(){
-        // several thin rectangles moving downwards
-        const count = 5 + Math.floor(Math.random()*3);
-        for(let i=0;i<count;i++){
-          const x = box.x + 8 + Math.random()*(box.w-16);
-          bullets.push({ x, y: box.y-8, vx:0, vy: 90, w: 4, h: 10 });
-        }
-      }
-      function spawnBoneSweep(dir){
-        // horizontal sweep across the box
-        const rows = 3;
-        for(let r=0;r<rows;r++){
-          const y = box.y + 12 + r*(box.h-24)/(rows-1);
-          const vx = dir>0? 130 : -130;
-          bullets.push({ x: dir>0? box.x-12 : box.x+box.w+12, y, vx, vy:0, w: 12, h: 6 });
-        }
-      }
-      function spawnSine(dir){
-        const baseY = box.y + box.h/2;
-        const vx = dir>0? 100 : -100;
-        for(let k=0;k<5;k++){
-          const phase = k*0.8;
-          bullets.push({ x: dir>0? box.x-10 : box.x+box.w+10, y: baseY, vx, vy:0, w: 6, h: 3, sine:{amp:16, freq:2.6, phase} });
-        }
-      }
-      function telegraphBeam(x, duration=0.6){
-        // warn then spawn a vertical beam
-        telegraphs.push({ x, ttl: duration });
-        setTimeout(()=>{
-          bullets.push({ x, y: box.y+box.h/2, vx:0, vy:0, w: 8, h: box.h+8, life:0.5, beam:true });
-        }, duration*1000);
-      }
+    createCorridor();    let phaseTimer = 15; // 15 secondes d'esquive
 
-      // Projectiles en forme de pointeur (chevron ">")
-      function spawnPointers(side){
-        const count = 3 + Math.floor(Math.random()*3);
-        for(let i=0;i<count;i++){
-          const y = box.y + 12 + Math.random()*(box.h-24);
-          const dir = side>0? 1 : -1;
-          const size = 14;
-          // Ajouter w/h pour collisions approx rectangulaires; le rendu sera un triangle
-          bullets.push({ pointer:true, x: dir>0? box.x-16 : box.x+box.w+16, y, vx: 120*dir, vy: 0, size, w: size, h: size*0.7 });
-        }
-      }
+    knifeObject = createKnife();    const bullets = [];
 
-    let last = performance.now();
-    let acc = 0;
-    let spawnAcc = 0;
-    let phaseAcc = 0;
-    let attackFlash = 0;
+    updateHP();    const telegraphs = [];
+
+    animate();    let iframes = 0;
+
+}    let attackReady = false;
+
+
+
+function animate() {    // Spawn simple horizontal bullets
+
+    requestAnimationFrame(animate);    function spawnWave(){
+
+          const dir = Math.random()<0.5 ? -1 : 1;
+
+    const now = performance.now();      const y = box.y + 8 + Math.random()*(box.h-16);
+
+    const delta = (now - lastTime) / 1000;      bullets.push({ x: dir<0? box.x+box.w+10 : box.x-10, y, vx: 80*dir, vy: 0, w: 10, h: 2 });
+
+    lastTime = now;    }
+
+    
+
+    if (gameState.mode === 'exploration' && controls.isLocked) {      function spawnVerticalWall(){
+
+        // Mouvement        // several thin rectangles moving downwards
+
+        const direction = new THREE.Vector3();        const count = 5 + Math.floor(Math.random()*3);
+
+        camera.getWorldDirection(direction);        for(let i=0;i<count;i++){
+
+        direction.y = 0;          const x = box.x + 8 + Math.random()*(box.w-16);
+
+        direction.normalize();          bullets.push({ x, y: box.y-8, vx:0, vy: 90, w: 4, h: 10 });
+
+                }
+
+        const right = new THREE.Vector3();      }
+
+        right.crossVectors(camera.up, direction).normalize();      function spawnBoneSweep(dir){
+
+                // horizontal sweep across the box
+
+        const speed = CONFIG.player.speed * (keys.sprint ? CONFIG.player.sprintMultiplier : 1) * delta;        const rows = 3;
+
+                for(let r=0;r<rows;r++){
+
+        if (keys.forward) camera.position.addScaledVector(direction, -speed);          const y = box.y + 12 + r*(box.h-24)/(rows-1);
+
+        if (keys.backward) camera.position.addScaledVector(direction, speed);          const vx = dir>0? 130 : -130;
+
+        if (keys.left) camera.position.addScaledVector(right, speed);          bullets.push({ x: dir>0? box.x-12 : box.x+box.w+12, y, vx, vy:0, w: 12, h: 6 });
+
+        if (keys.right) camera.position.addScaledVector(right, -speed);        }
+
+              }
+
+        // Contraintes du couloir      function spawnSine(dir){
+
+        camera.position.x = Math.max(-CONFIG.corridor.width/2 + 0.5, Math.min(CONFIG.corridor.width/2 - 0.5, camera.position.x));        const baseY = box.y + box.h/2;
+
+        camera.position.z = Math.max(-CONFIG.corridor.length + 1, Math.min(1, camera.position.z));        const vx = dir>0? 100 : -100;
+
+                for(let k=0;k<5;k++){
+
+        // Ramassage couteau          const phase = k*0.8;
+
+        if (!gameState.hasKnife && knifeObject) {          bullets.push({ x: dir>0? box.x-10 : box.x+box.w+10, y: baseY, vx, vy:0, w: 6, h: 3, sine:{amp:16, freq:2.6, phase} });
+
+            const dist = camera.position.distanceTo(knifeObject.knife.position);        }
+
+                  }
+
+            if (dist < 2) {      function telegraphBeam(x, duration=0.6){
+
+                showPrompt("Appuyez sur E pour ramasser le couteau");        // warn then spawn a vertical beam
+
+                        telegraphs.push({ x, ttl: duration });
+
+                if (keys.interact) {        setTimeout(()=>{
+
+                    gameState.hasKnife = true;          bullets.push({ x, y: box.y+box.h/2, vx:0, vy:0, w: 8, h: box.h+8, life:0.5, beam:true });
+
+                    scene.remove(knifeObject.knife);        }, duration*1000);
+
+                    scene.remove(knifeObject.light);      }
+
+                    hidePrompt();
+
+                    showMessage("Vous avez ramassé un couteau ensanglanté...", 3000);      // Projectiles en forme de pointeur (chevron ">")
+
+                    keys.interact = false;      function spawnPointers(side){
+
+                }        const count = 3 + Math.floor(Math.random()*3);
+
+            } else {        for(let i=0;i<count;i++){
+
+                hidePrompt();          const y = box.y + 12 + Math.random()*(box.h-24);
+
+            }          const dir = side>0? 1 : -1;
+
+        }          const size = 14;
+
+                  // Ajouter w/h pour collisions approx rectangulaires; le rendu sera un triangle
+
+        // Déclenchement combat          bullets.push({ pointer:true, x: dir>0? box.x-16 : box.x+box.w+16, y, vx: 120*dir, vy: 0, size, w: size, h: size*0.7 });
+
+        if (gameState.hasKnife && camera.position.z < -CONFIG.corridor.length + 5 && !gameState.combatActive) {        }
+
+            gameState.combatActive = true;      }
+
+            gameState.mode = 'combat';
+
+            combat.start();    let last = performance.now();
+
+        }    let acc = 0;
+
+    }    let spawnAcc = 0;
+
+        let phaseAcc = 0;
+
+    renderer.render(scene, camera);    let attackFlash = 0;
+
+}
 
     const keys = new Set();
-    // Barre d'attaque Undertale (curseur qui parcourt une jauge)
-    let attackBar = { active:false, pos:0, speed:0.9, dir:1 };
-    function kdn(e){ 
-      keys.add(e.code);
-      // Attaquer avec ESPACE pendant la phase d'attaque
-      if(e.code === 'Space' && phase === 'attack' && attackReady) {
+
+// Gestion fenêtre    // Barre d'attaque Undertale (curseur qui parcourt une jauge)
+
+window.addEventListener('resize', () => {    let attackBar = { active:false, pos:0, speed:0.9, dir:1 };
+
+    camera.aspect = window.innerWidth / window.innerHeight;    function kdn(e){ 
+
+    camera.updateProjectionMatrix();      keys.add(e.code);
+
+    renderer.setSize(window.innerWidth, window.innerHeight);      // Attaquer avec ESPACE pendant la phase d'attaque
+
+});      if(e.code === 'Space' && phase === 'attack' && attackReady) {
+
         // Calculer dégâts selon proximité du centre de la jauge
-        const q = attackBar.active ? (1 - Math.min(1, Math.abs(attackBar.pos - 0.5)/0.5)) : 0;
-        const dmg = q > 0.85 ? 2 : (q > 0.25 ? 1 : 0);
+
+// Démarrage        const q = attackBar.active ? (1 - Math.min(1, Math.abs(attackBar.pos - 0.5)/0.5)) : 0;
+
+init();        const dmg = q > 0.85 ? 2 : (q > 0.25 ? 1 : 0);
+
         if(dmg>0) bossHP = Math.max(0, bossHP - dmg);
         attackFlash = 0.5;
         attackReady = false; attackBar.active = false;
