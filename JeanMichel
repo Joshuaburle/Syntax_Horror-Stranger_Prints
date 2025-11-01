@@ -9,6 +9,7 @@ import shutil
 import threading
 import socket
 import http.server
+import time
 import socketserver
 import mimetypes
 
@@ -229,7 +230,8 @@ def _open_html_endcard():
         except Exception as e:
             print(f"Erreur serveur HTTP: {e}")
     
-    url = f"http://localhost:{SERVER_PORT}/index.html"
+    # Ajout d'un cache-buster pour forcer le rafraîchissement du navigateur
+    url = f"http://localhost:{SERVER_PORT}/index.html?t={int(time.time())}"
     
     # Ouvrir selon l'environnement
     for cmd in ['wslview', 'xdg-open']:
