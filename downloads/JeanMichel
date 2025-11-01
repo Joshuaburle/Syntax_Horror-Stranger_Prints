@@ -346,19 +346,20 @@ def _show_screamer_static(img_path):
         _open_html_endcard()
 
 def _open_html_endcard():
-    """Ouvre game/index.html via un serveur HTTP local."""
+    """Ouvre game/index.html via un serveur HTTP local en servant la racine
+    du package (qui contient à la fois game/ et images/)."""
     def _port_in_use(port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(0.25)
             return s.connect_ex(("127.0.0.1", port)) == 0
 
-    def _start_server(game_dir):
+    def _start_server(root_dir):
         try:
             from functools import partial as _partial
-            Handler = _partial(http.server.SimpleHTTPRequestHandler, directory=game_dir)
+            Handler = _partial(http.server.SimpleHTTPRequestHandler, directory=root_dir)
         except TypeError:
             cwd = os.getcwd()
-            os.chdir(game_dir)
+            os.chdir(root_dir)
             Handler = http.server.SimpleHTTPRequestHandler
         
         class ReusableTCPServer(socketserver.TCPServer):
@@ -378,7 +379,8 @@ def _open_html_endcard():
         return False
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    game_dir = os.path.join(script_dir, 'game')
+    root_dir = script_dir  # contient 'game' et 'images'
+    game_dir = os.path.join(root_dir, 'game')
     
     if not os.path.exists(os.path.join(game_dir, 'index.html')):
         print("Erreur: 'game/index.html' introuvable.")
@@ -387,11 +389,18 @@ def _open_html_endcard():
     mimetypes.add_type('application/wasm', '.wasm')
     mimetypes.add_type('application/javascript', '.js')
     mimetypes.add_type('text/css', '.css')
+    mimetypes.add_type('image/webp', '.webp')
+    mimetypes.add_type('image/png', '.png')
+    mimetypes.add_type('image/jpeg', '.jpg')
+    mimetypes.add_type('image/jpeg', '.jpeg')
+    mimetypes.add_type('image/gif', '.gif')
+    mimetypes.add_type('audio/mpeg', '.mp3')
+    mimetypes.add_type('video/mp4', '.mp4')
     
-    # Démarrer le serveur si nécessaire
+    # Démarrer le serveur si nécessaire (docroot = script_dir)
     if not _port_in_use(SERVER_PORT):
         try:
-            _start_server(game_dir)
+            _start_server(root_dir)
             # Attendre que le serveur soit prêt
             if not _wait_for_server(SERVER_PORT):
                 print("Avertissement: Le serveur HTTP met du temps à démarrer")
@@ -399,7 +408,8 @@ def _open_html_endcard():
             print(f"Erreur serveur HTTP: {e}")
             return
     
-    url = f"http://127.0.0.1:{SERVER_PORT}/index.html"
+    # Ouvrir l'index du jeu avec un chemin absolu depuis la racine servie
+    url = f"http://127.0.0.1:{SERVER_PORT}/game/index.html"
     
     # Tentative d'ouverture selon l'environnement
     # 1. WSL/Linux outils
