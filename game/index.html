@@ -3,39 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horror FPS - PS2 Style</title>
+    <title>Combat - Jean-Michel</title>
     <link rel="stylesheet" href="style.css">
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
-        }
-    }
-    </script>
 </head>
 <body>
-    <div id="viewport"></div>
-    
-    <div id="hud">
-        <div id="prompt" hidden>Appuyez sur E</div>
-        <div id="message" hidden>Message</div>
-        <div id="crosshair">
-            <div class="h-line"></div>
-            <div class="v-line"></div>
-        </div>
-    </div>
-    
-    <div id="combat-screen" class="combat-screen" hidden>
-        <canvas id="combat-canvas" width="640" height="480"></canvas>
-        <div class="combat-ui">
-            <div class="hp-bar">
-                <div class="hp-fill" id="hp-fill"></div>
-                <span class="hp-text" id="hp-text">20 / 20</span>
+    <div id="game">
+        <canvas id="canvas" width="640" height="480"></canvas>
+        
+        <div id="ui">
+            <div class="hearts-container">
+                <span class="heart filled" id="heart1">❤️</span>
+                <span class="heart filled" id="heart2">❤️</span>
+                <span class="heart filled" id="heart3">❤️</span>
+                <span class="heart filled" id="heart4">❤️</span>
+                <span class="heart filled" id="heart5">❤️</span>
             </div>
-            <div id="combat-message" class="combat-message">* Message de combat</div>
+            
+            <div class="boss-hp-container">
+                <div class="boss-name">Jean-Michel</div>
+                <div class="boss-hp-bar-bg">
+                    <div class="boss-hp-bar" id="boss-hp"></div>
+                </div>
+            </div>
+            
+            <div id="message">* Jean-Michel vous fixe intensément...</div>
+            
+            <div id="attack-phase" class="hidden">
+                <div class="attack-bar">
+                    <div class="attack-cursor" id="cursor"></div>
+                    <div class="attack-target" id="target"></div>
+                </div>
+                <div class="attack-hint">Appuyez sur ESPACE au bon moment !</div>
+            </div>
         </div>
     </div>
     
-    <script type="module" src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
