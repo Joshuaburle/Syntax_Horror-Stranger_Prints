@@ -541,6 +541,11 @@ def show(node_id):
         button_list = [btn]
         root.after(0, lambda: focus_button(0))
 
+    # Déclencher le screamer immédiatement à l'arrivée sur le nœud 'end'
+    if node_id == 'end' and not _end_html_opened:
+        _end_html_opened = True
+        _show_screamer_overlay()
+
 # Démarrer avec la première scène
 show("start")
 
