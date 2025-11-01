@@ -10,7 +10,7 @@ const gameState = {
     player: { x: 320, y: 350, size: 12 }
 };
 
-const bossImages = ['normal.png', 'mecontent.png', 'colere.png', 'big_mouth.png', 'screamer.png'];
+const bossImages = ['mecontent.png', 'colere.png', 'big_mouth.png', 'screamer.png'];
 const bossImgElements = [];
 const bossVideo = document.createElement('video');
 bossVideo.src = '../images/screamer_animated.mp4';
@@ -20,12 +20,36 @@ bossVideo.autoplay = true;
 bossVideo.play();
 
 const messages = [
-    "* Jean-Michel vous fixe intensément...",
-    "* Jean-Michel semble mécontent...",
-    "* Jean-Michel est en colère !",
-    "* Jean-Michel ouvre grand sa bouche !",
-    "* Jean-Michel HURLE !!!"
+    "* ...chut... il écoute.",
+    "* Ses yeux ne clignent plus.",
+    "* Les murs se rapprochent...",
+    "* Sa bouche s'ouvre et aspire la lumière.",
+    "* IL FAUT FUIR."
 ];
+
+// Effet dactylographie + léger glitch
+function setMessage(text, {speed=22, glitch=true} = {}) {
+    const el = document.getElementById('message');
+    let i = 0;
+    let shown = '';
+    const chars = text.split('');
+    clearInterval(el._typeInt);
+    el.textContent = '';
+    el._typeInt = setInterval(() => {
+        if (i >= chars.length) {
+            clearInterval(el._typeInt);
+            el.textContent = shown;
+            return;
+        }
+        shown += chars[i++];
+        if (glitch && Math.random() < 0.1) {
+            // très léger flicker
+            el.style.opacity = '0.7';
+            setTimeout(()=>{ el.style.opacity = '1'; }, 40);
+        }
+        el.textContent = shown;
+    }, speed);
+}
 
 bossImages.forEach((src, i) => {
     const img = new Image();
@@ -55,7 +79,7 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-const dodgeBox = { x: 120, y: 150, width: 400, height: 250 };
+const dodgeBox = { x: 160, y: 170, width: 320, height: 200 };
 let dodgeTime = 0;
 let phaseDuration = 8;
 let patternTimer = 0;
@@ -92,7 +116,7 @@ function spawnBulletsPhase1() {
 }
 
 function spawnBulletsPhase2() {
-    // Phase 2: Croix qui convergent
+    // Phase 2: Croix qui convergent + chevrons/pointers
     if (Math.random() < 0.015) {
         const centerX = dodgeBox.x + dodgeBox.width / 2;
         const centerY = dodgeBox.y + dodgeBox.height / 2;
@@ -119,6 +143,18 @@ function spawnBulletsPhase2() {
             shape: 'cross'
         });
     }
+    // Chevrons rapides (pointeurs)
+    if (Math.random() < 0.02) {
+        const side = Math.random() < 0.5;
+        gameState.bullets.push({
+            x: side ? dodgeBox.x - 30 : dodgeBox.x + dodgeBox.width + 30,
+            y: dodgeBox.y + Math.random() * dodgeBox.height,
+            vx: (side ? 1 : -1) * 140,
+            vy: 0,
+            size: 18,
+            shape: 'chevron'
+        });
+    }
 }
 
 function spawnBulletsPhase3() {
@@ -143,47 +179,48 @@ function spawnBulletsPhase3() {
 }
 
 function spawnBulletsPhase4() {
-    // Phase 4: CHAOS - tout en même temps + rapide
+    // Phase 4: Style Sans - murs/beam + densité
     patternTimer += 1/60;
     
-    // Vagues rapides alternées
+    // Murs horizontaux/verticaux avec trou (beam)
+    if (Math.random() < 0.02) {
+        const horizontal = Math.random() < 0.5;
+        const gapSize = 80;
+        const gapPos = horizontal
+            ? dodgeBox.x + 40 + Math.random() * (dodgeBox.width - 80)
+            : dodgeBox.y + 40 + Math.random() * (dodgeBox.height - 80);
+
+        if (horizontal) {
+            // Mur horizontal qui monte
+            // Partie gauche du mur
+            gameState.bullets.push({ x: dodgeBox.x + (gapPos - dodgeBox.x)/2, y: dodgeBox.y + dodgeBox.height + 20,
+                vx: 0, vy: -160, shape: 'warn', w: (gapPos - dodgeBox.x), h: 18, delay: 0.5 });
+            // Partie droite du mur
+            const rightWidth = (dodgeBox.x + dodgeBox.width) - (gapPos + gapSize);
+            gameState.bullets.push({ x: gapPos + gapSize + rightWidth/2, y: dodgeBox.y + dodgeBox.height + 20,
+                vx: 0, vy: -160, shape: 'warn', w: rightWidth, h: 18, delay: 0.5 });
+        } else {
+            // Mur vertical qui va vers la gauche
+            // Partie haute
+            gameState.bullets.push({ x: dodgeBox.x + dodgeBox.width + 20, y: dodgeBox.y + (gapPos - dodgeBox.y)/2,
+                vx: -160, vy: 0, shape: 'warn', w: 18, h: (gapPos - dodgeBox.y), delay: 0.5 });
+            // Partie basse
+            const bottomHeight = (dodgeBox.y + dodgeBox.height) - (gapPos + gapSize);
+            gameState.bullets.push({ x: dodgeBox.x + dodgeBox.width + 20, y: gapPos + gapSize + bottomHeight/2,
+                vx: -160, vy: 0, shape: 'warn', w: 18, h: bottomHeight, delay: 0.5 });
+        }
+    }
+    
+    // Quelques projectiles rapides pour la pression
     if (Math.random() < 0.03) {
         const side = Math.random() < 0.5;
         gameState.bullets.push({
             x: side ? dodgeBox.x - 20 : dodgeBox.x + dodgeBox.width + 20,
             y: dodgeBox.y + Math.random() * dodgeBox.height,
-            vx: (side ? 1 : -1) * 160,
-            vy: Math.sin(patternTimer * 3) * 40,
-            size: 12,
+            vx: (side ? 1 : -1) * 200,
+            vy: 0,
+            size: 10,
             shape: 'circle'
-        });
-    }
-    
-    // Pluie dense
-    if (Math.random() < 0.025) {
-        gameState.bullets.push({
-            x: dodgeBox.x + Math.random() * dodgeBox.width,
-            y: dodgeBox.y - 25,
-            vx: (Math.random() - 0.5) * 60,
-            vy: 140,
-            size: 11,
-            shape: 'square'
-        });
-    }
-    
-    // Étoiles rotatives
-    if (Math.random() < 0.008) {
-        const angle = patternTimer * 2;
-        const radius = 250;
-        const centerX = dodgeBox.x + dodgeBox.width / 2;
-        const centerY = dodgeBox.y + dodgeBox.height / 2;
-        gameState.bullets.push({
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius,
-            vx: -Math.cos(angle) * 100,
-            vy: -Math.sin(angle) * 100,
-            size: 18,
-            shape: 'star'
         });
     }
 }
@@ -212,6 +249,18 @@ function updateDodge(dt) {
     if (keys.left) gameState.player.x -= speed * dt;
     if (keys.right) gameState.player.x += speed * dt;
     
+    // Phase 3: aspiration vers la bouche (point en haut-centre)
+    if (gameState.bossPhase === 3) {
+        const mouthX = canvas.width / 2;
+        const mouthY = 70;
+        const dx = mouthX - gameState.player.x;
+        const dy = mouthY - gameState.player.y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const pull = 140; // force d'aspiration
+        gameState.player.x += (dx / dist) * pull * dt;
+        gameState.player.y += (dy / dist) * pull * dt;
+    }
+    
     gameState.player.x = Math.max(dodgeBox.x + 10, Math.min(dodgeBox.x + dodgeBox.width - 10, gameState.player.x));
     gameState.player.y = Math.max(dodgeBox.y + 10, Math.min(dodgeBox.y + dodgeBox.height - 10, gameState.player.y));
     
@@ -219,6 +268,13 @@ function updateDodge(dt) {
     
     for (let i = gameState.bullets.length - 1; i >= 0; i--) {
         const b = gameState.bullets[i];
+        // Gestion des warnings qui deviennent beams
+        if (b.shape === 'warn') {
+            b.delay -= dt;
+            if (b.delay <= 0) {
+                b.shape = 'beam';
+            }
+        }
         b.x += b.vx * dt;
         b.y += b.vy * dt;
         
@@ -227,11 +283,20 @@ function updateDodge(dt) {
             continue;
         }
         
-        const dx = b.x - gameState.player.x;
-        const dy = b.y - gameState.player.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist < gameState.player.size / 2 + b.size / 2) {
+        // Collision par type
+        let hit = false;
+        if (b.shape === 'beam') {
+            const px = gameState.player.x, py = gameState.player.y;
+            const left = b.x - b.w/2, right = b.x + b.w/2;
+            const top = b.y - b.h/2, bottom = b.y + b.h/2;
+            if (px >= left && px <= right && py >= top && py <= bottom) hit = true;
+        } else if (b.shape !== 'warn') {
+            const dx = b.x - gameState.player.x;
+            const dy = b.y - gameState.player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < gameState.player.size / 2 + (b.size || 12) / 2) hit = true;
+        }
+        if (hit) {
             playerHit();
             gameState.bullets.splice(i, 1);
         }
@@ -263,6 +328,21 @@ function drawDodge() {
     ctx.closePath();
     ctx.fill();
     
+    // Effet visuel d'aspiration phase 3
+    if (gameState.bossPhase === 3) {
+        const mouthX = canvas.width / 2;
+        const mouthY = 70;
+        for (let k = 0; k < 12; k++) {
+            const angle = (k / 12) * Math.PI * 2;
+            const len = 40 + (k % 3) * 10;
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.beginPath();
+            ctx.moveTo(mouthX, mouthY);
+            ctx.lineTo(mouthX + Math.cos(angle) * len, mouthY + Math.sin(angle) * len);
+            ctx.stroke();
+        }
+    }
+
     // Balles avec formes différentes
     gameState.bullets.forEach(b => {
         ctx.fillStyle = '#fff';
@@ -314,18 +394,39 @@ function drawDodge() {
                 ctx.closePath();
                 ctx.fill();
                 break;
+            case 'beam':
+                ctx.fillRect(b.x - b.w/2, b.y - b.h/2, b.w, b.h);
+                break;
+            case 'warn':
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.fillRect(b.x - b.w/2, b.y - b.h/2, b.w, b.h);
+                break;
+            case 'chevron':
+                // Dessiner un chevron > ou < selon vx
+                ctx.beginPath();
+                const c = b.size;
+                if (b.vx > 0) { // >
+                    ctx.moveTo(b.x - c/2, b.y - c/2);
+                    ctx.lineTo(b.x + c/2, b.y);
+                    ctx.lineTo(b.x - c/2, b.y + c/2);
+                } else { // <
+                    ctx.moveTo(b.x + c/2, b.y - c/2);
+                    ctx.lineTo(b.x - c/2, b.y);
+                    ctx.lineTo(b.x + c/2, b.y + c/2);
+                }
+                ctx.closePath();
+                ctx.fill();
+                break;
         }
     });
     
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 24px "Courier New"';
-    ctx.fillText(`${Math.ceil(phaseDuration - dodgeTime)}s`, 30, 40);
+    // Compteur retiré
 }
 
 let attackCursorPos = 0;
 let attackCursorSpeed = 300;
 let attackTargetPos = 0;
-let attackTargetWidth = 80;
+let attackTargetWidth = 60;
 let attackPhaseActive = false;
 let attackProcessed = false;
 
@@ -337,11 +438,15 @@ function switchToAttack() {
     
     document.getElementById('attack-phase').classList.remove('hidden');
     
-    attackTargetPos = 150 + Math.random() * 250;
+    const barWidth = document.querySelector('.attack-bar').offsetWidth;
+    const margin = 40;
+    attackTargetPos = Math.floor(margin + Math.random() * (barWidth - attackTargetWidth - margin * 2));
     document.getElementById('target').style.left = attackTargetPos + 'px';
     document.getElementById('target').style.width = attackTargetWidth + 'px';
     
-    document.getElementById('message').textContent = "* Votre tour d'attaquer !";
+    attackCursorPos = Math.floor(barWidth / 2); // spawn au centre
+    document.getElementById('cursor').style.left = attackCursorPos + 'px';
+    setMessage("* Test d'habileté: frappe au bon moment.");
 }
 
 function updateAttack(dt) {
@@ -365,9 +470,9 @@ function updateAttack(dt) {
         
         if (attackCursorPos >= hitZoneStart && attackCursorPos <= hitZoneEnd) {
             bossHit();
-            document.getElementById('message').textContent = "* Touché !";
+            setMessage("* Touché !");
         } else {
-            document.getElementById('message').textContent = "* Raté... Aucun dégât infligé.";
+            setMessage("* Raté... Aucun dégât infligé.");
         }
         
         // Retour à la phase esquive après 1.5s
@@ -379,7 +484,7 @@ function updateAttack(dt) {
             gameState.phase = 'dodge';
             patternTimer = 0;
             if (gameState.phase !== 'win' && gameState.phase !== 'gameover') {
-                document.getElementById('message').textContent = messages[gameState.bossPhase];
+                setMessage(messages[gameState.bossPhase]);
             }
         }, 1500);
     }
@@ -395,18 +500,28 @@ function bossHit() {
         setTimeout(() => document.getElementById('canvas').classList.remove('shake'), 300);
     } else {
         gameState.phase = 'win';
-        document.getElementById('message').textContent = "* Vous avez vaincu Jean-Michel !";
+        setMessage("* Vous avez vaincu Jean-Michel !", {speed: 10, glitch: false});
     }
 }
 
 function playerHit() {
     gameState.playerHP--;
     updatePlayerHP();
+    spawnRmRf();
     
     if (gameState.playerHP <= 0) {
         gameState.phase = 'gameover';
-        document.getElementById('message').textContent = "* GAME OVER";
+        setMessage("* GAME OVER", {speed: 30, glitch: true});
     }
+}
+
+function spawnRmRf() {
+    const ui = document.getElementById('ui');
+    const tag = document.createElement('div');
+    tag.className = 'rmrf';
+    tag.textContent = 'rm -rf';
+    ui.appendChild(tag);
+    setTimeout(() => tag.remove(), 1200);
 }
 
 function updatePlayerHP() {
@@ -456,3 +571,5 @@ function gameLoop() {
 }
 
 gameLoop();
+// Message initial
+setMessage(messages[0]);
