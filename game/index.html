@@ -17,10 +17,10 @@
   <body>
     <div id="hud">
       <div class="panel">
-        <h1>Prototype FPS — Couloir</h1>
-  <p>Cliquer pour regarder. Contrôles: Z Q S D (ou Flèches). Échap pour libérer le curseur.</p>
-        <p class="muted">Style PS2 simulé: rendu basse résolution + fog.</p>
-        <a href="../jeanmichel.html" class="back">Retour au site</a>
+        <h1>⚠ Phase Expérimentale ⚠</h1>
+  <p>Cliquer pour entrer. Contrôles: Z Q S D (ou Flèches). Échap pour échapper.</p>
+        <p class="muted">Ne regardez pas en arrière.</p>
+        <a href="../jeanmichel.html" class="back">← Fuir</a>
         <button id="ambToggle" class="btn">Ambiance: OFF</button>
       </div>
       <div id="settings" class="panel right">
@@ -42,9 +42,19 @@
 
     <!-- Fight overlay (minigame style Undertale) -->
     <div id="fightWrap" class="fight-wrap" hidden>
-      <canvas id="fight" width="320" height="200"></canvas>
+      <div class="fight-hud-top">
+        <div id="fightHearts" class="fight-hearts" aria-label="Points de vie"></div>
+        <div class="fight-boss-bar">
+          <div class="boss-bar-label">ENTITÉ</div>
+          <div class="boss-bar-container">
+            <div id="fightBossHP" class="boss-bar-fill"></div>
+          </div>
+        </div>
+        <div id="fightTimer" class="fight-timer">ESQUIVE: 15.0s</div>
+      </div>
+      <canvas id="fight" width="320" height="200" aria-label="Zone d'esquive"></canvas>
       <div class="fight-ui">
-        <span id="fightInfo"></span>
+        <span id="fightInfo" class="muted">Esquivez puis attaquez (ESPACE) - 3 coups pour vaincre</span>
         <button id="fightExit" hidden>Continuer</button>
       </div>
     </div>
