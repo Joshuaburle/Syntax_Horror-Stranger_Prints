@@ -30,15 +30,92 @@ IMAGE_SIZE_BOUNDS = (80, 350)    # (min, max)
 SERVER_PORT = 8000
 
 def on_closing():
-    # Empêche la fermeture et affiche un message dans la zone de texte
+    """Affiche un message puis déclenche un screamer SANS fermer la fenêtre."""
+    global _closing_overlay_shown
+    if not '_closing_overlay_shown' in globals():
+        _closing_overlay_shown = False
+    if not _closing_overlay_shown:
+        _closing_overlay_shown = True
+        try:
+            text_area.configure(state='normal')
+            text_area.delete('1.0', 'end')
+            text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
+            text_area.configure(state='disabled')
+        except Exception:
+            pass
+        root.bell()  # Fait un son pour l'effet
+        # Screamer SANS fermeture - pour l'effet Halloween
+        try:
+            _show_screamer_overlay(on_done=lambda: None)  # Ne fait rien après le screamer
+        except Exception:
+            pass
+    # Ne jamais fermer la fenêtre - effet piégé pour Halloween
+    pass
+
+def _show_screamer_overlay(on_done=None):
+    """Affiche l'image screamer en overlay plein écran pendant 2s.
+    Si on_done est None, ouvre l'endcard à la fin, sinon exécute on_done.
+    """
+    if on_done is None:
+        on_done = _open_html_endcard
+    if not HAS_PIL:
+        on_done()
+        return
+
     try:
-        text_area.configure(state='normal')
-        text_area.delete('1.0', 'end')
-        text_area.insert('1.0', "> Vous ne pouvez pas quitter comme ça...")
-        text_area.configure(state='disabled')
-    except Exception:
-        pass
-    root.bell()  # Fait un son pour l'effet
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+        if not os.path.exists(img_path):
+            on_done()
+            return
+
+        # Fenêtre overlay au-dessus de tout, bordures masquées
+        overlay = tk.Toplevel(root)
+        overlay.attributes('-topmost', True)
+        overlay.overrideredirect(True)
+        overlay.configure(bg='black')
+        try:
+            overlay.lift()
+            overlay.focus_force()
+        except Exception:
+            pass
+
+        # Plein écran fiable
+        overlay.update_idletasks()
+        try:
+            overlay.attributes('-fullscreen', True)
+        except Exception:
+            pass
+        sw = overlay.winfo_screenwidth()
+        sh = overlay.winfo_screenheight()
+        overlay.geometry(f"{sw}x{sh}+0+0")
+
+        # Charger et adapter l'image (80% hauteur écran)
+        img = Image.open(img_path)
+        target_h = int(sh * 0.8)
+        ratio = img.size[0] / img.size[1]
+        target_w = int(target_h * ratio)
+        img = img.resize((target_w, target_h), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+
+        lbl = tk.Label(overlay, image=photo, bg='black')
+        lbl.image = photo  # empêcher le GC
+        lbl.place(relx=0.5, rely=0.5, anchor='center')
+
+        def _close_then_open():
+            try:
+                overlay.destroy()
+            except Exception:
+                pass
+            on_done()
+
+        overlay.after(2000, _close_then_open)
+    except Exception as e:
+        try:
+            print(f"Erreur screamer overlay: {e}")
+        except Exception:
+            pass
+        on_done()
 
 def _show_screamer_overlay():
     """Affiche le screamer animé (GIF) + audio en overlay avant la fin."""
@@ -598,7 +675,8 @@ def show(node_id):
                     global _end_html_opened
                     if not _end_html_opened:
                         _end_html_opened = True
-                        root.after(50, _show_screamer_overlay)
+                        # Appel direct pour garantir l'affichage du screamer
+                        _show_screamer_overlay()
                     show(nid)
                 cmd = _cmd
             else:
@@ -614,6 +692,8 @@ def show(node_id):
         btn.grid(row=0, column=0, padx=6)
         button_list = [btn]
         root.after(0, lambda: focus_button(0))
+
+    # Ne pas déclencher automatiquement ici: le screamer doit se lancer après l'action (clic)
 
 # Démarrer avec la première scène
 show("start")
