@@ -155,7 +155,7 @@ Une variable en C a une adresse en mémoire. Pour obtenir cette adresse, on util
 Selon toi que represente &n ?""",
         "choices": [
             ("L'adresse de la variable n", "second_question"),
-            ("La valeur de la variable n", "cas_erreur")
+            ("La valeur de la variable n", "cas_erreur_q1")
         ]
         ,"image": "normal.png"
     },
@@ -165,7 +165,7 @@ Selon toi que represente &n ?""",
 Que fait l'expression *p si p est un pointeur vers un entier ?""",
         "choices": [
             ("Accède à la valeur entière pointée par p", "third_question"),
-            ("Accède à l'adresse de p", "cas_erreur")
+            ("Accède à l'adresse de p", "cas_erreur_q2")
         ]
         ,"image": "normal.png"
     },
@@ -174,17 +174,26 @@ Que fait l'expression *p si p est un pointeur vers un entier ?""",
         "text": """Q3 — Comprendre l'envers.
 Que fait l'expression &*p si p est un pointeur valide ?""",
         "choices": [
-            ("Retourne la valeur stockée à l'adresse de p", "jean_michel_enerve"),
+            ("Retourne la valeur stockée à l'adresse de p", "cas_erreur_q3"),
             ("Retourne l'adresse pointée par p", "strange_question")
         ]
         ,"image": "normal.png"
     },
-    "cas_erreur": {
+    "cas_erreur_q1": {
         "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
         "choices": [("Recommencer", "first_question")],
         "image": "mecontent.png"
     },
-
+    "cas_erreur_q2": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "second_question")],
+        "image": "mecontent.png"
+    },
+    "cas_erreur_q3": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "third_question")],
+        "image": "mecontent.png"
+    },
     "jean_michel_enerve": {
         "text": """Jean-Michel Pointeur (v1.1)
 Ça suffit les erreurs ! On va tout reprendre depuis le début.
@@ -198,7 +207,7 @@ Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettr
             ("Un(e) ami(e)", "end"),
             ("Un(e) membre de ta famille", "end")
         ]
-        ,"image": "normal.png"
+        ,"image": "big_mouth.png"
     },
 
     "end": {
@@ -234,6 +243,7 @@ image_label = None
 _current_image_name = None
 _last_img_size = None
 user_name = ""
+has_previous_errors = False  # Pour traquer les erreurs aux questions 1 et 2
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 def _load_image(name: str):
@@ -280,21 +290,21 @@ def _load_image(name: str):
             return None
 
 def _compute_target_size():
-    """Calcule une taille carrée proportionnelle à la fenêtre, bornée min/max."""
+    """Calcule une taille proportionnelle à la fenêtre, bornée min/max."""
     ww = max(1, root.winfo_width())
     wh = max(1, root.winfo_height())
-    # 13% de la largeur et 18% de la hauteur, puis on prend le plus petit
-    target = int(min(ww * 0.13, wh * 0.18))
-    # Bornes de sécurité
-    return max(50, min(200, target))
+    # 20% de la largeur et 30% de la hauteur, puis on prend le plus petit
+    target = int(min(ww * 0.20, wh * 0.30))
+    # Bornes de sécurité (augmentées)
+    return max(80, min(350, target))
 
 def _resize_image(event=None):
     global _last_img_size
     if not HAS_PIL or not image_label:
         return
     try:
-        new_size = _compute_target_size()
-        if new_size == _last_img_size:
+        target_height = _compute_target_size()
+        if target_height == _last_img_size:
             return  # évite MAJ inutiles
         img = None
         if _current_image_name:
@@ -303,15 +313,22 @@ def _resize_image(event=None):
             img = image_cache.get('normal.png') or _load_image('normal.png')
         if img is None:
             return
+        
+        # Calculer la nouvelle taille en gardant le ratio d'aspect
+        orig_width, orig_height = img.size
+        aspect_ratio = orig_width / orig_height
+        new_height = target_height
+        new_width = int(target_height * aspect_ratio)
+        
         try:
             resample_algo = Image.Resampling.LANCZOS
         except AttributeError:
             resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
-        resized = img.resize((new_size, new_size), resample=resample_algo)
+        resized = img.resize((new_width, new_height), resample=resample_algo)
         photo = ImageTk.PhotoImage(resized)
         image_label.configure(image=photo)
         image_label.image = photo  # garder référence
-        _last_img_size = new_size
+        _last_img_size = target_height
         image_frame.lift()
     except Exception as e:
         print(f"Erreur lors du redimensionnement: {e}")
@@ -415,7 +432,16 @@ root.bind('<KP_Enter>', on_key_enter)
 root.bind('<space>', on_key_enter)
 
 def show(node_id):
-    global button_list, _end_html_opened, _current_image_name, user_name
+    global button_list, _end_html_opened, _current_image_name, _last_img_size, user_name, has_previous_errors
+    
+    # Traquer les erreurs aux questions 1 et 2
+    if node_id in ["cas_erreur_q1", "cas_erreur_q2"]:
+        has_previous_errors = True
+    
+    # Rediriger vers jean_michel_enerve si erreur à Q3 après des erreurs précédentes
+    if node_id == "cas_erreur_q3" and has_previous_errors:
+        node_id = "jean_michel_enerve"
+    
     node = STORY[node_id]
 
     # Gérer l'image associée au nœud (si présent)
@@ -426,6 +452,11 @@ def show(node_id):
             _load_image(img_name)
     else:
         _current_image_name = 'normal.png'
+        if HAS_PIL:
+            _load_image('normal.png')
+    
+    # Forcer le rechargement de l'image même si la taille n'a pas changé
+    _last_img_size = None
     _resize_image()
 
     # Mettre à jour le texte dans la zone scrollable
