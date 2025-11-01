@@ -23,6 +23,21 @@ Copy-Item -LiteralPath (Join-Path $root 'downloads/README.md') -Destination (Joi
 Copy-Item -LiteralPath (Join-Path $root 'images') -Destination (Join-Path $stage 'images') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $root 'game') -Destination (Join-Path $stage 'game') -Recurse -Force
 
+# Cleanup artifacts and obsolete copies from staging (do not ship backups or ADS leftovers)
+foreach ($sub in @('images','game')) {
+  $target = Join-Path $stage $sub
+  if (Test-Path $target) {
+    # Common cruft
+    Get-ChildItem -Path (Join-Path $target '*') -Recurse -Force -Include '*.backup','*~','.DS_Store','Thumbs.db' |
+      Remove-Item -Force -ErrorAction SilentlyContinue
+
+    # Files that look like Windows ADS exports (e.g., name.webp:Zone.Identifier)
+    Get-ChildItem -Path (Join-Path $target '*') -Recurse -Force |
+      Where-Object { $_.Name -like '*:Zone.Identifier' } |
+      Remove-Item -Force -ErrorAction SilentlyContinue
+  }
+}
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (Test-Path $zipTmp) { Remove-Item -LiteralPath $zipTmp -Force }
 [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $zipTmp, [System.IO.Compression.CompressionLevel]::Optimal, $false)

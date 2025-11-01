@@ -5,7 +5,14 @@ ZIP_PATH="$ROOT_DIR/downloads/JeanMichel-Windows.zip"
 
 # Rebuild ZIP (requires zip)
 rm -f "$ZIP_PATH"
-( cd "$ROOT_DIR" && zip -r -q "$ZIP_PATH" downloads/JeanMichel.bat downloads/JeanMichel downloads/README.md images game )
+( cd "$ROOT_DIR" && zip -r -q "$ZIP_PATH" \
+  downloads/JeanMichel.bat \
+  downloads/JeanMichel \
+  downloads/README.md \
+  images \
+  game \
+  -x 'images/*:Zone.Identifier' 'images/*.backup' 'images/*~' 'images/.DS_Store' 'images/Thumbs.db' \
+     'game/*.backup' 'game/*~' 'game/.DS_Store' 'game/Thumbs.db' )
 
 # Update HTML: checksum + cache-buster for ZIP and for game
 "$ROOT_DIR/tools/update-zip-hash.sh"

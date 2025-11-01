@@ -37,6 +37,14 @@ Ce package contient :
 
 ✅ **C'est tout ! Vous n'aurez plus jamais à refaire ces étapes.**
 
+💡 Astuce: Depuis cette version, le lanceur `JeanMichel.bat` détecte automatiquement les dépendances manquantes dans WSL et peut vous proposer de les installer pour vous (avec `sudo`). Si vous acceptez, il exécutera:
+
+```bash
+sudo apt update && sudo apt install -y python3-tk python3-pil python3-pygame
+```
+
+Si WSL n'est pas installé, le lanceur vous indiquera comment l'installer (`wsl --install`).
+
 ---
 
 ### 🎮 Lancement du jeu
