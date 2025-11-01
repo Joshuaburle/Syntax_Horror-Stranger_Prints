@@ -24,475 +24,363 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   const DPRScale = 0.6; // 0.5–0.7 looks good
   const viewport = document.getElementById('viewport');
   const renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:'low-power' });
-  renderer.setPixelRatio(Math.max(1, window.devicePixelRatio * DPRScale));
+  renderer.setPixelRatio(Math.max(0.5, (window.devicePixelRatio||1) * DPRScale));
   renderer.setSize(window.innerWidth, window.innerHeight);
   viewport.appendChild(renderer.domElement);
 
-  // Scene & camera
+  // Scene & Camera
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0508); // plus sombre, teinte rougeâtre
-  scene.fog = new THREE.FogExp2(0x120a0d, 0.008); // brouillard réduit pour mieux voir (était 0.015)
-
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 1.6, 0); // eye height
+  scene.fog = new THREE.FogExp2(0x120a0d, 0.006);
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 0.8, 0); // Hauteur ajustée pour bien voir
 
   // Controls (Pointer Lock)
   const controls = new PointerLockControls(camera, renderer.domElement);
-  let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
-  let velocity = new THREE.Vector3();
-  let speed = 2.65; // m/s (UI-controlled)
+  viewport.addEventListener('click', ()=>{ if(!controls.isLocked) controls.lock(); });
 
-  renderer.domElement.addEventListener('click', ()=>{
-    controls.lock();
-  });
-
-  document.addEventListener('keydown', (e)=>{
-    switch(e.code){
-      case 'ArrowUp': case 'KeyW': case 'KeyZ': moveForward = true; break; // Z for AZERTY
-      case 'ArrowLeft': case 'KeyA': case 'KeyQ': moveLeft = true; break;   // Q for AZERTY
-      case 'ArrowDown': case 'KeyS': moveBackward = true; break;
-      case 'ArrowRight': case 'KeyD': moveRight = true; break;
-    }
-  });
-  document.addEventListener('keyup', (e)=>{
-    switch(e.code){
-      case 'ArrowUp': case 'KeyW': case 'KeyZ': moveForward = false; break;
-      case 'ArrowLeft': case 'KeyA': case 'KeyQ': moveLeft = false; break;
-      case 'ArrowDown': case 'KeyS': moveBackward = false; break;
-      case 'ArrowRight': case 'KeyD': moveRight = false; break;
-    }
-  });
-
-  // Interaction key (E) for pickups
+  // Movement state
+  let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false, runPressed=false;
   let interactPressed = false;
-  document.addEventListener('keydown', (e)=>{
-    if(e.code === 'KeyE') interactPressed = true;
-  });
-  document.addEventListener('keyup', (e)=>{
-    if(e.code === 'KeyE') interactPressed = false;
-  });
+  let speed = 2.6;
+  const velocity = new THREE.Vector3();
 
-  // Corridor builder
-  const corridor = new THREE.Group();
-  scene.add(corridor);
-
-  // Créer textures procédurales pour un look PS2 amélioré
-  function makeTexture(color, noise = 0.15) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    
-    // Couleur de base
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 128, 128);
-    
-    // Ajout de bruit
-    const imgData = ctx.getImageData(0, 0, 128, 128);
-    for(let i = 0; i < imgData.data.length; i += 4) {
-      const n = (Math.random() - 0.5) * noise * 255;
-      imgData.data[i] += n;
-      imgData.data[i+1] += n;
-      imgData.data[i+2] += n;
+  function onKey(e, down){
+    const set = (code, val)=>{ if(e.code===code) return val; };
+    switch(e.code){
+      case 'KeyW': case 'KeyZ': case 'ArrowUp': moveForward = down; break;
+      case 'KeyS': case 'ArrowDown': moveBackward = down; break;
+      case 'KeyA': case 'KeyQ': case 'ArrowLeft': moveLeft = down; break;
+      case 'KeyD': case 'ArrowRight': moveRight = down; break;
+      case 'ShiftLeft': case 'ShiftRight': runPressed = down; break;
+      case 'KeyE': if(down) interactPressed = true; break;
     }
-    ctx.putImageData(imgData, 0, 0);
-    
-    // Lignes de détail
-    ctx.strokeStyle = `rgba(0,0,0,${noise * 0.5})`;
+  }
+  window.addEventListener('keydown', e=>onKey(e,true));
+  window.addEventListener('keyup', e=>onKey(e,false));
+
+  // =============================
+  // Textures procédurales (panneaux/bruit)
+  // =============================
+  function makeTexture(hex = '#2b2422', noise = 0.15) {
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 128;
+    const ctx = cvs.getContext('2d');
+    ctx.fillStyle = hex;
+    ctx.fillRect(0,0,128,128);
+    // bruit
+    const img = ctx.getImageData(0,0,128,128);
+    for(let i=0;i<img.data.length;i+=4){
+      const n = (Math.random()-0.5) * 255 * noise;
+      img.data[i]   = Math.max(0, Math.min(255, img.data[i]  + n));
+      img.data[i+1] = Math.max(0, Math.min(255, img.data[i+1]+ n*0.8));
+      img.data[i+2] = Math.max(0, Math.min(255, img.data[i+2]+ n*0.6));
+    }
+    ctx.putImageData(img, 0, 0);
+    // lignes horizontales/verticales (panneaux)
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
     ctx.lineWidth = 1;
-    for(let i = 0; i < 128; i += 16) {
-      ctx.beginPath();
-      ctx.moveTo(0, i);
-      ctx.lineTo(128, i);
-      ctx.stroke();
-    }
-    
-    const tex = new THREE.CanvasTexture(canvas);
+    for(let y=0;y<=128;y+=16){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(128,y); ctx.stroke(); }
+    for(let x=0;x<=128;x+=24){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,128); ctx.stroke(); }
+    const tex = new THREE.CanvasTexture(cvs);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(2, 2);
+    tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy?.()||4);
+    tex.needsUpdate = true;
     return tex;
   }
 
-  const wallTex = makeTexture('#1a1416', 0.2);
-  const floorTex = makeTexture('#0d0a0b', 0.25);
-  const ceilTex = makeTexture('#0f0c0d', 0.2);
+  // Corridor build (wider, long)
+  const corridor = new THREE.Group();
+  scene.add(corridor);
+  const width = 1.8, height = 1.6, length = 2.0, segments = 15; // Hauteur augmentée
 
-  const wallMat = new THREE.MeshLambertMaterial({ color:0x1a1416, map: wallTex }); 
-  const floorMat = new THREE.MeshLambertMaterial({ color:0x0d0a0b, map: floorTex }); 
-  const ceilMat = new THREE.MeshLambertMaterial({ color:0x0f0c0d, map: ceilTex }); 
-  
-  // Matériaux pour détails inquiétants
-  const stainMat = new THREE.MeshBasicMaterial({ color:0x2a1215, transparent:true, opacity:0.6 }); // taches sombres
-  const rustMat = new THREE.MeshStandardMaterial({ color:0x3d2520, metalness:0.4, roughness:0.95 }); // rouille
+  // Texture unifiée pour TOUTES les surfaces (sol, plafond, murs)
+  const corridorTex = makeTexture('#2b2422', 0.14); 
+  corridorTex.repeat.set(2, 2); // Répétition pour plus de détails
+  const corridorMat = new THREE.MeshStandardMaterial({ 
+    color: 0xffffff, 
+    map: corridorTex, 
+    roughness: 0.85, 
+    metalness: 0.05,
+    side: THREE.DoubleSide
+  });
 
-  const width=4, height=3, length=12, segments=12; // shorten total length ~144m
-  const wallGeo = new THREE.BoxGeometry(0.2, height, length);
-  const floorGeo = new THREE.PlaneGeometry(width, length);
+  const wallThickness = 0.01;
 
-  // Build corridor with simple door frames every 5 segments
   for(let i=0;i<segments;i++){
     const z = -i*length;
-    // Left wall
-    const wl = new THREE.Mesh(wallGeo, wallMat); wl.position.set(-width/2, height/2, z - length/2); corridor.add(wl);
-    // Right wall
-    const wr = new THREE.Mesh(wallGeo, wallMat); wr.position.set(width/2, height/2, z - length/2); corridor.add(wr);
-    // Floor
-    const f = new THREE.Mesh(floorGeo, floorMat); f.rotation.x = -Math.PI/2; f.position.set(0, 0, z - length/2); corridor.add(f);
-    // Ceiling
-    const c = new THREE.Mesh(floorGeo, ceilMat); c.rotation.x = Math.PI/2; c.position.set(0, height, z - length/2); corridor.add(c);
+    // Sol avec la même texture que tout le reste
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, length), corridorMat);
+    floor.rotation.x = -Math.PI/2; floor.position.set(0, 0, z - length/2);
+    // Plafond
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(width, length), corridorMat);
+    ceil.rotation.x = Math.PI/2; ceil.position.set(0, height, z - length/2);
+    // Murs
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, length), corridorMat);
+    leftWall.position.set(-width/2, height/2, z - length/2);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, length), corridorMat);
+    rightWall.position.set(width/2, height/2, z - length/2);
+    corridor.add(floor, ceil, leftWall, rightWall);
 
-    // Ajouter des taches inquiétantes sur les murs (style Observo)
-    if(Math.random() < 0.4){
-      const stainSize = 0.3 + Math.random() * 0.8;
-      const stain = new THREE.Mesh(
-        new THREE.CircleGeometry(stainSize, 8),
-        stainMat
-      );
-      stain.position.set(
-        (Math.random()<0.5?-1:1) * (width/2 - 0.1),
-        0.4 + Math.random() * (height-0.8),
-        z - length/2 + (Math.random()-0.5)*length*0.8
-      );
-      stain.rotation.y = Math.random()<0.5 ? Math.PI/2 : -Math.PI/2;
-      corridor.add(stain);
-    }
-
-    // Câbles pendants (détails oppressants)
-    if(Math.random() < 0.25){
-      const cableGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.6 + Math.random()*0.4, 6);
-      const cableMat = new THREE.MeshLambertMaterial({ color:0x1a1a1a });
-      const cable = new THREE.Mesh(cableGeo, cableMat);
-      cable.position.set(
-        (Math.random()-0.5) * width * 0.6,
-        height - 0.3,
-        z - length/2 + (Math.random()-0.5)*length
-      );
-      corridor.add(cable);
-    }
-
-    // Light every few segments (with slight flicker later) - lumière plus forte
-    if(i % 3 === 0){
-      const lamp = new THREE.PointLight(0xd4695a, 2.8, 22, 1.8); // lumière plus forte
-      lamp.position.set(0, height-0.3, z - length + 1.0);
-      lamp.userData.baseIntensity = 2.8;
-      lamp.userData.flickerSpeed = 0.3 + Math.random()*0.4;
+    // Lampes seulement tous les 2 segments pour optimiser
+    if(i % 2 === 0) {
+      const lamp = new THREE.PointLight(0xd4695a, 3.0, 20, 1.5);
+      const lampZ = z - length + 1.0;
+      lamp.position.set(0, height-0.3, lampZ);
+      lamp.userData.baseIntensity = 3.0;
+      lamp.userData.flickerSpeed = 0.3 + Math.random()*0.3;
       corridor.add(lamp);
-    }
 
-    // Door frame every 5 segments - portes rouillées et inquiétantes
-    if(i>0 && i % 5 === 0){
-      const barMat = rustMat; // utiliser le matériau rouillé
-      const pillarGeo = new THREE.BoxGeometry(0.15, height, 0.6);
-      const beamGeo = new THREE.BoxGeometry(width, 0.12, 0.6);
-      const zf = z + 0.3;
-      const pL = new THREE.Mesh(pillarGeo, barMat); pL.position.set(-width/2+0.15/2, height/2, zf);
-      const pR = new THREE.Mesh(pillarGeo, barMat); pR.position.set( width/2-0.15/2, height/2, zf);
-      const beam = new THREE.Mesh(beamGeo, barMat); beam.position.set(0, height-0.15/2, zf);
-      corridor.add(pL, pR, beam);
+      const fixture = new THREE.Group();
+      const bodyGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.04, 8);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3d2a25, roughness: 0.9, metalness: 0.1 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat); body.rotation.x = Math.PI/2;
+      const cap = new THREE.Mesh(new THREE.CircleGeometry(0.14, 12), new THREE.MeshBasicMaterial({ color: 0xffd2b0 }));
+      cap.rotation.x = -Math.PI/2; cap.position.y = -0.02;
+      fixture.add(body, cap);
+      fixture.position.set(0, height-0.28, lampZ);
+      corridor.add(fixture);
     }
   }
 
-  // Éclairage ambiant amélioré pour mieux voir
-  const ambient = new THREE.AmbientLight(0x5a4540, 0.8); // augmenté significativement
+  // Porte condamnée derrière le spawn avec chaînes et cadenas
+  const sealedDoorZ = 0.5; // Proche derrière le spawn
+  
+  // Cadre de porte en bois sombre
+  const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a1a15, roughness: 0.95, metalness: 0.0 });
+  const sealedFrameTop = new THREE.Mesh(new THREE.BoxGeometry(width*0.6, 0.15, 0.1), doorFrameMat);
+  sealedFrameTop.position.set(0, height*0.85, sealedDoorZ);
+  const sealedFrameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.12, height*0.9, 0.1), doorFrameMat);
+  sealedFrameLeft.position.set(-width*0.3, height/2, sealedDoorZ);
+  const sealedFrameRight = sealedFrameLeft.clone();
+  sealedFrameRight.position.x = width*0.3;
+  corridor.add(sealedFrameTop, sealedFrameLeft, sealedFrameRight);
+  
+  // Double porte en bois usé
+  const sealedDoorMat = new THREE.MeshStandardMaterial({ 
+    color: 0x3d2820, 
+    map: corridorTex, 
+    roughness: 0.9, 
+    metalness: 0.0 
+  });
+  const doorWidth = (width*0.6 - 0.12) / 2;
+  const doorHeight = height * 0.85;
+  const sealedDoorL = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.08), sealedDoorMat);
+  sealedDoorL.position.set(-doorWidth/2 - 0.03, height/2, sealedDoorZ);
+  const sealedDoorR = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.08), sealedDoorMat);
+  sealedDoorR.position.set(doorWidth/2 + 0.03, height/2, sealedDoorZ);
+  corridor.add(sealedDoorL, sealedDoorR);
+  
+  // Chaînes qui traversent la porte (réduites à 3 pour performance)
+  const chainMat = new THREE.MeshStandardMaterial({ 
+    color: 0x4a4a4a, 
+    roughness: 0.7, 
+    metalness: 0.6 
+  });
+  for(let i = 0; i < 3; i++) { // Réduit de 4 à 3
+    const chainY = height * 0.3 + i * (height * 0.4 / 2);
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, width*0.65, 6), chainMat); // Réduit segments de 8 à 6
+    chain.rotation.z = Math.PI/2;
+    chain.position.set(0, chainY, sealedDoorZ - 0.05); // Devant la porte
+    corridor.add(chain);
+    
+    // Maillons de chaîne (réduits)
+    for(let j = -2; j <= 2; j++) { // Réduit de -3,3 à -2,2
+      const link = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.015, 6, 10), chainMat); // Réduit segments
+      link.rotation.y = Math.PI/2;
+      link.position.set(j * 0.3, chainY, sealedDoorZ - 0.05); // Devant la porte
+      corridor.add(link);
+    }
+  }
+  
+  // Cadenas massif au centre
+  const lockMat = new THREE.MeshStandardMaterial({ 
+    color: 0x3a3a3a, 
+    roughness: 0.5, 
+    metalness: 0.8 
+  });
+  const lockBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.18, 0.08), lockMat);
+  lockBody.position.set(0, height/2, sealedDoorZ - 0.04); // Devant la porte
+  corridor.add(lockBody);
+  
+  // Anse du cadenas
+  const lockShackle = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 8, 16, Math.PI), lockMat);
+  lockShackle.rotation.x = Math.PI/2;
+  lockShackle.position.set(0, height/2 + 0.12, sealedDoorZ - 0.04); // Devant la porte
+  corridor.add(lockShackle);
+  
+  // Trou de serrure (détail noir)
+  const keyholeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const keyhole = new THREE.Mesh(new THREE.CircleGeometry(0.015, 8), keyholeMat);
+  keyhole.position.set(0, height/2 - 0.02, sealedDoorZ - 0.03); // Devant la porte
+  corridor.add(keyhole);
+  
+  // Sol derrière la porte avec texture unifiée
+  const backFloor = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 3), corridorMat);
+  backFloor.rotation.x = -Math.PI/2;
+  backFloor.position.set(0, 0, sealedDoorZ + 1.5);
+  corridor.add(backFloor);
+  
+  // Murs latéraux derrière la porte scellée (collision)
+  const backLeftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, 3), corridorMat);
+  backLeftWall.position.set(-width/2, height/2, sealedDoorZ + 1.5);
+  corridor.add(backLeftWall);
+  
+  const backRightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, height, 3), corridorMat);
+  backRightWall.position.set(width/2, height/2, sealedDoorZ + 1.5);
+  corridor.add(backRightWall);
+  
+  // Plafond derrière la porte
+  const backCeiling = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 3), corridorMat);
+  backCeiling.rotation.x = Math.PI/2;
+  backCeiling.position.set(0, height, sealedDoorZ + 1.5);
+  corridor.add(backCeiling);
+  
+  // Mur de fond derrière la porte (collision)
+  const backWallWidth = width * 1.5;
+  const backWallHeight = height * 1.5;
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(backWallWidth, backWallHeight, wallThickness), corridorMat);
+  backWall.position.set(0, backWallHeight/2, sealedDoorZ + 0.01);
+  corridor.add(backWall);
+
+  // Mur de fin du couloir (au fond)
+  const corridorEndZ = -(segments-1)*length;
+  const endWall = new THREE.Mesh(new THREE.BoxGeometry(width, height, wallThickness), corridorMat);
+  endWall.position.set(0, height/2, corridorEndZ);
+  corridor.add(endWall);
+
+  // Ukulélé à récupérer (style Risk of Rain 2 - low poly coloré)
+  function makeUkulele() {
+    const group = new THREE.Group();
+    
+    // Corps simplifié en bois clair (style RoR2)
+    const bodyMat = new THREE.MeshStandardMaterial({ 
+      color: 0xf4b860,
+      roughness: 0.7, 
+      metalness: 0.0,
+      flatShading: true // Low poly look
+    });
+    
+    // Corps principal (box arrondi)
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.25, 0.18, 0.08, 1, 1, 1),
+      bodyMat
+    );
+    body.position.set(0, 0, 0);
+    
+    // Table d'harmonie (cercle plat orange)
+    const soundboard = new THREE.Mesh(
+      new THREE.CircleGeometry(0.08, 8),
+      new THREE.MeshStandardMaterial({ 
+        color: 0xe89a3c, 
+        roughness: 0.8,
+        flatShading: true 
+      })
+    );
+    soundboard.rotation.y = Math.PI / 2;
+    soundboard.position.x = 0.041;
+    
+    // Trou de résonance (petit cercle noir)
+    const hole = new THREE.Mesh(
+      new THREE.CircleGeometry(0.02, 6),
+      new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
+    );
+    hole.rotation.y = Math.PI / 2;
+    hole.position.x = 0.042;
+    
+    // Manche (box long brun foncé)
+    const neckMat = new THREE.MeshStandardMaterial({ 
+      color: 0x6b4423, 
+      roughness: 0.8,
+      flatShading: true
+    });
+    const neck = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.03, 0.025, 1, 1, 1),
+      neckMat
+    );
+    neck.position.set(-0.175, 0.09, 0);
+    
+    // Tête du manche (triangle stylisé)
+    const headstock = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.05, 0.02, 1, 1, 1),
+      neckMat
+    );
+    headstock.position.set(-0.35, 0.09, 0);
+    
+    // 4 cordes (lignes blanches très fines)
+    const stringMat = new THREE.MeshStandardMaterial({ 
+      color: 0xf0f0f0, 
+      roughness: 0.4,
+      metalness: 0.5
+    });
+    for(let i = 0; i < 4; i++) {
+      const string = new THREE.Mesh(
+        new THREE.BoxGeometry(0.35, 0.003, 0.003, 1, 1, 1),
+        stringMat
+      );
+      string.position.set(-0.175, 0.09, -0.012 + i * 0.008);
+      group.add(string);
+    }
+    
+    // Chevalet (petit bloc marron)
+    const bridge = new THREE.Mesh(
+      new THREE.BoxGeometry(0.04, 0.01, 0.03, 1, 1, 1),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x3a2010,
+        flatShading: true 
+      })
+    );
+    bridge.position.set(0.08, -0.08, 0);
+    
+    // Mécaniques simplifiées (4 petits cubes gris)
+    const tunerMat = new THREE.MeshStandardMaterial({ 
+      color: 0xaaaaaa, 
+      metalness: 0.7,
+      roughness: 0.3,
+      flatShading: true
+    });
+    for(let i = 0; i < 4; i++) {
+      const tuner = new THREE.Mesh(
+        new THREE.BoxGeometry(0.015, 0.015, 0.015, 1, 1, 1),
+        tunerMat
+      );
+      tuner.position.set(-0.35, 0.09 + (i < 2 ? 0.015 : -0.015), -0.012 + (i % 2) * 0.008);
+      group.add(tuner);
+    }
+    
+    group.add(body, soundboard, hole, neck, headstock, bridge);
+    group.rotation.y = Math.PI / 4;
+    return group;
+  }
+
+  const UKULELE_Z = -(segments/2) * length; // Au milieu du couloir
+  const ukulele = makeUkulele();
+  ukulele.position.set(0.3, 0.6, UKULELE_Z);
+  corridor.add(ukulele);
+  
+  // Lumière pour l'ukulélé
+  const ukuleleLight = new THREE.PointLight(0xffd700, 2.0, 8);
+  ukuleleLight.position.copy(ukulele.position);
+  corridor.add(ukuleleLight);
+  
+  ukulele.userData.baseY = ukulele.position.y;
+  
+  // Éclairage ambiant optimisé
+  const ambient = new THREE.AmbientLight(0x6a554a, 0.8);
   scene.add(ambient);
-  const startLamp = new THREE.PointLight(0xd4695a, 3.5, 18, 2.0); // lumière de départ plus forte
+  const startLamp = new THREE.PointLight(0xd4695a, 3.5, 20, 1.6);
   startLamp.position.set(0, 2.2, -2);
   startLamp.userData.baseIntensity = 3.5;
   startLamp.userData.flickerSpeed = 0.35;
   scene.add(startLamp);
-  // Lumière hémisphérique douce pour meilleure visibilité
-  const hemi = new THREE.HemisphereLight(0x8a6a5a, 0x3a2a20, 0.4);
+  const hemi = new THREE.HemisphereLight(0x8a6a5a, 0x3a2a20, 0.6);
   scene.add(hemi);
 
-  // Particules de poussière pour l'atmosphère
-  const dustCount = 200;
-  const dustGeo = new THREE.BufferGeometry();
-  const dustPos = new Float32Array(dustCount * 3);
-  for(let i = 0; i < dustCount; i++) {
-    dustPos[i*3] = (Math.random() - 0.5) * width * 2;
-    dustPos[i*3+1] = Math.random() * height;
-    dustPos[i*3+2] = -Math.random() * segments * length;
-  }
-  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-  const dustMat = new THREE.PointsMaterial({ 
-    color: 0x8a6a6a, 
-    size: 0.04, 
-    transparent: true, 
-    opacity: 0.4,
-    sizeAttenuation: true
-  });
-  const dust = new THREE.Points(dustGeo, dustMat);
-  scene.add(dust);
-
-  // Yeux multi-oculaires organiques (clusters d'yeux style biomécanique - OPTIMISÉ)
-  const eyes = [];
-  
-  function createEyeCluster(x, y, z, size = 1) {
-    const cluster = new THREE.Group();
-    const eyesInCluster = [];
-    
-    // Nombre d'yeux réduit (2 à 4 au lieu de 3-7)
-    const eyeCount = 2 + Math.floor(Math.random() * 3);
-    
-    // Masse organique centrale plus simple (moins de segments)
-    const massGeo = new THREE.SphereGeometry(0.2 * size, 8, 8);
-    const massMat = new THREE.MeshStandardMaterial({ 
-      color: 0x1a0f12,
-      roughness: 0.9,
-      metalness: 0.1,
-      emissive: 0x0a0505,
-      emissiveIntensity: 0.2
-    });
-    const mass = new THREE.Mesh(massGeo, massMat);
-    cluster.add(mass);
-    
-    // Créer plusieurs yeux de tailles variées autour
-    for(let i = 0; i < eyeCount; i++) {
-      const eyeSize = (0.5 + Math.random() * 0.5) * size;
-      const angle = (i / eyeCount) * Math.PI * 2 + Math.random() * 0.5;
-      const radius = 0.15 * size + Math.random() * 0.08 * size;
-      const eyeX = Math.cos(angle) * radius;
-      const eyeY = Math.sin(angle) * radius;
-      const eyeZ = (Math.random() - 0.5) * 0.08 * size;
-      
-      const eyeGroup = new THREE.Group();
-      
-      // Peau/chair autour de l'œil - géométrie simplifiée
-      const skinGeo = new THREE.SphereGeometry(0.12 * eyeSize, 6, 6);
-      const skinMat = new THREE.MeshStandardMaterial({ 
-        color: 0x8a6c6c,
-        roughness: 0.85,
-        metalness: 0
-      });
-      const skin = new THREE.Mesh(skinGeo, skinMat);
-      
-      // Globe oculaire - géométrie simplifiée
-      const eyeballGeo = new THREE.SphereGeometry(0.1 * eyeSize, 8, 8);
-      const eyeballMat = new THREE.MeshStandardMaterial({ 
-        color: 0xf4e4d8,
-        roughness: 0.2,
-        metalness: 0.05,
-        emissive: 0x1a1212,
-        emissiveIntensity: 0.1
-      });
-      const eyeball = new THREE.Mesh(eyeballGeo, eyeballMat);
-      eyeball.position.z = 0.04 * eyeSize;
-      
-      // Iris (couleur variée - plus visible)
-      const irisColors = [0x5a6aaa, 0xaa5a6a, 0x6aaa5a, 0x8a5a8a];
-      const irisGeo = new THREE.CircleGeometry(0.06 * eyeSize, 8); // plus grand
-      const irisMat = new THREE.MeshStandardMaterial({ 
-        color: irisColors[Math.floor(Math.random() * irisColors.length)],
-        roughness: 0.3,
-        side: THREE.DoubleSide
-      });
-      const iris = new THREE.Mesh(irisGeo, irisMat);
-      iris.position.z = 0.101 * eyeSize; // plus proche de la surface
-      
-      // Pupille - plus grande et visible
-      const pupilGeo = new THREE.CircleGeometry(0.03 * eyeSize, 8);
-      const pupilMat = new THREE.MeshBasicMaterial({ 
-        color: 0x000000,
-        side: THREE.DoubleSide
-      });
-      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-      pupil.position.z = 0.102 * eyeSize;
-      
-      // Reflet plus visible
-      const highlightGeo = new THREE.CircleGeometry(0.02 * eyeSize, 4);
-      const highlightMat = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.9,
-        side: THREE.DoubleSide
-      });
-      const highlight = new THREE.Mesh(highlightGeo, highlightMat);
-      highlight.position.set(-0.03 * eyeSize, 0.03 * eyeSize, 0.103 * eyeSize);
-      
-      // Vaisseaux sanguins simplifiés (moins de lignes)
-      const veinsGeo = new THREE.BufferGeometry();
-      const veinPositions = [];
-      for(let v = 0; v < 3; v++) { // réduit de 6 à 3
-        const vAngle = (v / 3) * Math.PI * 2;
-        const vr = 0.08 * eyeSize;
-        veinPositions.push(
-          Math.cos(vAngle) * vr * 0.2, Math.sin(vAngle) * vr * 0.2, 0.09 * eyeSize,
-          Math.cos(vAngle) * vr, Math.sin(vAngle) * vr, 0.02 * eyeSize
-        );
-      }
-      veinsGeo.setAttribute('position', new THREE.Float32BufferAttribute(veinPositions, 3));
-      const veinMat = new THREE.LineBasicMaterial({ 
-        color: 0xaa3a3a,
-        transparent: true,
-        opacity: 0.5
-      });
-      const veins = new THREE.LineSegments(veinsGeo, veinMat);
-      
-      eyeGroup.add(skin);
-      eyeGroup.add(eyeball);
-      eyeGroup.add(veins);
-      eyeGroup.add(iris);
-      eyeGroup.add(pupil);
-      eyeGroup.add(highlight);
-      
-      eyeGroup.position.set(eyeX, eyeY, eyeZ);
-      eyeGroup.rotation.set(
-        (Math.random() - 0.5) * 0.5,
-        (Math.random() - 0.5) * 0.5,
-        0
-      );
-      
-      cluster.add(eyeGroup);
-      
-      eyesInCluster.push({
-        group: eyeGroup,
-        iris: iris,
-        pupil: pupil,
-        highlight: highlight,
-        eyeball: eyeball,
-        size: eyeSize,
-        baseRotation: eyeGroup.rotation.clone()
-      });
-    }
-    
-    // Tentacules réduits et simplifiés
-    const tentacleCount = 2 + Math.floor(Math.random() * 3); // réduit de 3-7 à 2-4
-    for(let t = 0; t < tentacleCount; t++) {
-      const angle = (t / tentacleCount) * Math.PI * 2 + Math.random();
-      const length = 0.12 + Math.random() * 0.18;
-      
-      const tentacleGeo = new THREE.CylinderGeometry(
-        0.008 * size, 
-        0.02 * size, 
-        length * size, 
-        4 // réduit de 6 à 4 segments
-      );
-      const tentacleMat = new THREE.MeshStandardMaterial({ 
-        color: 0x2a1a1a,
-        roughness: 0.9,
-        metalness: 0
-      });
-      const tentacle = new THREE.Mesh(tentacleGeo, tentacleMat);
-      
-      tentacle.position.set(
-        Math.cos(angle) * 0.15 * size,
-        Math.sin(angle) * 0.15 * size,
-        -length * size * 0.5
-      );
-      tentacle.rotation.set(
-        Math.cos(angle) * Math.PI/3,
-        0,
-        Math.sin(angle) * Math.PI/3
-      );
-      
-      cluster.add(tentacle);
-    }
-    
-    cluster.position.set(x, y, z);
-    
-    // Lumière rouge du cluster - moins intensive
-    const clusterLight = new THREE.SpotLight(0xcc2222, 0, 18, Math.PI/3, 0.6, 2);
-    clusterLight.position.copy(cluster.position);
-    clusterLight.position.z += 0.3 * size;
-    clusterLight.target.position.set(0, 1.6, z);
-    scene.add(clusterLight);
-    scene.add(clusterLight.target);
-    
-    corridor.add(cluster);
-    
-    eyes.push({
-      cluster: cluster,
-      mass: mass,
-      eyesInCluster: eyesInCluster,
-      light: clusterLight,
-      lightTarget: clusterLight.target,
-      basePos: cluster.position.clone(),
-      size: size,
-      pulseOffset: Math.random() * Math.PI * 2,
-      blinkTimer: Math.random() * 10,
-      isWatching: false,
-      watchIntensity: 0,
-      nervousness: Math.random()
-    });
-    
-    return cluster;
-  }
-  
-  // Placer des clusters d'yeux de manière OPTIMISÉE (moins de clusters, mieux positionnés)
-  for(let i = 1; i < segments; i++) {
-    const z = -i * length;
-    
-    // UN SEUL cluster par segment sur les murs (au lieu de 2)
-    if(Math.random() < 0.7) { // seulement 70% des segments
-      const side = Math.random() < 0.5 ? -1 : 1;
-      const wallX = side * (width/2 - 0.35); // PLUS LOIN du mur (0.35 au lieu de 0.2)
-      const wallY = 0.5 + Math.random() * 1.8;
-      const wallZ = z + (Math.random() - 0.5) * length * 0.6;
-      const clusterSize = 0.7 + Math.random() * 0.5;
-      const cluster = createEyeCluster(wallX, wallY, wallZ, clusterSize);
-      cluster.rotation.y = side > 0 ? -Math.PI/2 : Math.PI/2;
-    }
-    
-    // Clusters au plafond - RÉDUIT
-    if(Math.random() < 0.3) { // réduit de 50% à 30%
-      const ceilX = (Math.random() - 0.5) * width * 0.5;
-      const ceilY = height - 0.25; // plus bas du plafond
-      const ceilZ = z + (Math.random() - 0.5) * length * 0.5;
-      const clusterSize = 0.5 + Math.random() * 0.5;
-      const cluster = createEyeCluster(ceilX, ceilY, ceilZ, clusterSize);
-      cluster.rotation.x = Math.PI/2;
-    }
-    
-    // Clusters au sol - ENCORE PLUS RARE
-    if(Math.random() < 0.05) { // réduit de 10% à 5%
-      const floorX = (Math.random() - 0.5) * width * 0.4;
-      const floorY = 0.12;
-      const floorZ = z + (Math.random() - 0.5) * length * 0.4;
-      const clusterSize = 0.4 + Math.random() * 0.5;
-      const cluster = createEyeCluster(floorX, floorY, floorZ, clusterSize);
-      cluster.rotation.x = -Math.PI/2;
-    }
-  }
-
+  // Particules de poussière retirées pour optimisation
 
   // Simple collision with walls (AABB inside corridor)
-  let halfW = (width/2) - 0.35; // margin from walls (peut varier avec les yeux)
-  let corridorNarrowFactor = 0; // Facteur de rétrécissement du couloir (0 à 1)
+  let halfW = (width/2) - 0.4;
 
-  // Knife at far end (low-poly group)
-  let hasKnife = false;
-  function makeKnife(){
-    const g = new THREE.Group();
-    // blade
-    const bladeGeo = new THREE.BoxGeometry(0.06, 0.01, 0.45);
-    const bladeMat = new THREE.MeshStandardMaterial({ color:0xdfe3ea, metalness:0.95, roughness:0.2, emissive:0x1a1a1a, emissiveIntensity:0.3 });
-    const blade = new THREE.Mesh(bladeGeo, bladeMat);
-    blade.name = 'blade';
-    blade.position.set(0, 0.015, 0.1);
-    // guard
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.01, 0.02), new THREE.MeshStandardMaterial({ color:0x999999, metalness:0.6, roughness:0.5 }));
-    guard.position.set(0, 0.01, -0.12);
-    // handle
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.02,0.16,6), new THREE.MeshStandardMaterial({ color:0x5a3a1f, metalness:0.05, roughness:0.9 }));
-    handle.rotation.x = Math.PI/2; handle.position.set(0,0.02,-0.2);
-    // pommel
-    const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.018,6,6), new THREE.MeshStandardMaterial({ color:0x888888, metalness:0.5, roughness:0.5 }));
-    pommel.position.set(0, 0.02, -0.28);
-    g.add(blade, guard, handle, pommel);
-    return g;
-  }
-  const knife = makeKnife();
-  const bladeMesh = knife.getObjectByName('blade');
-  if(bladeMesh) knife.userData.glowMat = bladeMesh.material;
-  const endZ = -(segments-2)*length; // a bit before the very end
-  knife.position.set(0, 1.0, endZ);
-  knife.rotation.y = Math.PI * 0.15;
-  const knifeLight = new THREE.PointLight(0xfff2e6, 1.6, 5.5, 2.2);
-  knifeLight.position.set(0.1, 1.2, endZ);
-  corridor.add(knife);
-  corridor.add(knifeLight);
-  // animate knife for visibility
-  knife.userData.baseY = knife.position.y;
+  let hasUkulele = false;
 
   function setPrompt(text){
     if(!text){ promptEl.hidden = true; return; }
@@ -514,213 +402,32 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
     prev = now;
     frameCount++;
 
-    // Simple flicker on lights - OPTIMISÉ (seulement tous les 3 frames)
-    if(frameCount % 3 === 0) {
+    // Flicker + clignotement visible sur les lampes (tous les 4 frames - optimisé)
+    if(frameCount % 4 === 0) { // Changé de 3 à 4
       corridor.children.forEach(obj=>{
         if(obj.isPointLight){
           const flicker = obj.userData.flickerSpeed || 0.3;
           const base = obj.userData.baseIntensity || 1.8;
-          if(Math.random() < flicker * dt * 30){
-            obj.intensity = base * (0.4 + Math.random()*0.6);
-          } else {
-            obj.intensity += (base - obj.intensity) * dt * 3;
+          // Blink occasional blackout
+          const nowMs = performance.now();
+          if(!obj.userData.blinkUntil && Math.random() < 0.003){ // Réduit de 0.004 à 0.003
+            obj.userData.blinkUntil = nowMs + 80 + Math.random()*180; // 80-260ms
           }
-        }
-      });
-    }
-
-    // Animer les particules de poussière - OPTIMISÉ (tous les 2 frames)
-    if(dust && frameCount % 2 === 0) {
-      const positions = dust.geometry.attributes.position.array;
-      for(let i = 0; i < positions.length; i += 3) {
-        positions[i+1] -= dt * 0.15;
-        if(positions[i+1] < 0) positions[i+1] = height;
-        positions[i] += Math.sin(now * 0.0003 + i) * dt * 0.05;
-      }
-      dust.geometry.attributes.position.needsUpdate = true;
-      dust.rotation.y += dt * 0.02;
-    }
-
-    // Animer les clusters d'yeux - OPTIMISÉ
-    eyes.forEach((eyeCluster, clusterIdx) => {
-      // Mettre à jour seulement certains clusters par frame pour optimiser
-      if(frameCount % 2 === clusterIdx % 2 && gameMode === 'explore') {
-        const clusterPos = eyeCluster.cluster.position;
-        const playerPos = camera.position;
-        
-        const distToPlayer = clusterPos.distanceTo(playerPos);
-        const watchDistance = 12;
-        const closeDistance = 6;
-        
-        // Pulsation organique de la masse centrale - SIMPLIFIÉ
-        const pulse = 1 + Math.sin(now * 0.003 + eyeCluster.pulseOffset) * 0.06;
-        eyeCluster.mass.scale.set(pulse, pulse, pulse);
-        
-        if(distToPlayer < watchDistance) {
-          eyeCluster.isWatching = true;
-          const proximity = 1 - (distToPlayer / watchDistance);
-          eyeCluster.watchIntensity = Math.min(1, eyeCluster.watchIntensity + dt * (1.5 + proximity));
-          
-          // Yeux du cluster regardent le joueur - SIMPLIFIÉ
-          eyeCluster.eyesInCluster.forEach((eye, idx) => {
-            const eyeWorldPos = new THREE.Vector3();
-            eye.group.getWorldPosition(eyeWorldPos);
-            
-            const dx = playerPos.x - eyeWorldPos.x;
-            const dy = playerPos.y - eyeWorldPos.y;
-            
-            const maxOffset = 0.08 * eye.size;
-            let offsetX = dx * 0.02;
-            let offsetY = dy * 0.02;
-            
-            // Nervosité réduite
-            const nervousness = eyeCluster.nervousness * eyeCluster.watchIntensity * 0.5;
-            offsetX += Math.sin(now * 0.008 + idx) * 0.01 * nervousness;
-            offsetY += Math.cos(now * 0.01 + idx) * 0.01 * nervousness;
-            
-            const dist = Math.hypot(offsetX, offsetY);
-            if(dist > maxOffset) {
-              offsetX = (offsetX / dist) * maxOffset;
-              offsetY = (offsetY / dist) * maxOffset;
-            }
-            
-            eye.iris.position.x += (offsetX - eye.iris.position.x) * dt * 6;
-            eye.iris.position.y += (offsetY - eye.iris.position.y) * dt * 6;
-            eye.pupil.position.x = eye.iris.position.x;
-            eye.pupil.position.y = eye.iris.position.y;
-            
-            eye.highlight.position.x = -0.03 * eye.size + eye.iris.position.x * 0.4;
-            eye.highlight.position.y = 0.03 * eye.size + eye.iris.position.y * 0.4;
-            
-            // Dilatation de la pupille simplifiée
-            if(distToPlayer < closeDistance) {
-              const closeness = 1 - (distToPlayer / closeDistance);
-              const dilate = 1 + closeness * 0.6;
-              eye.pupil.scale.set(dilate, dilate, 1);
-              
-              // Globe pulse simplifié
-              const fastPulse = 1 + Math.sin(now * 0.006 + idx) * 0.03 * closeness;
-              eye.eyeball.scale.set(fastPulse, fastPulse, fastPulse);
+          if(obj.userData.blinkUntil && nowMs < obj.userData.blinkUntil){
+            obj.intensity += (0 - obj.intensity) * 0.6; // rapid drop
+          } else {
+            obj.userData.blinkUntil = null;
+            if(Math.random() < flicker * dt * 30){
+              obj.intensity = base * (0.3 + Math.random()*0.7);
             } else {
-              eye.pupil.scale.set(1, 1, 1);
-              eye.eyeball.scale.set(1, 1, 1);
+              obj.intensity += (base - obj.intensity) * dt * 3;
             }
-          });
-          
-          // Lumière du cluster - OPTIMISÉ
-          if(distToPlayer < closeDistance) {
-            const closeness = 1 - (distToPlayer / closeDistance);
-            eyeCluster.light.intensity = closeness * 4 * eyeCluster.watchIntensity; // réduit de 5 à 4
-            eyeCluster.light.distance = 18 + closeness * 15; // réduit la portée
-          } else {
-            eyeCluster.light.intensity = eyeCluster.watchIntensity * 1.0;
-          }
-          
-          eyeCluster.lightTarget.position.copy(camera.position);
-          
-          // Rotation du cluster vers le joueur - SIMPLIFIÉ
-          const turnToPlayer = Math.atan2(
-            playerPos.x - clusterPos.x,
-            playerPos.z - clusterPos.z
-          );
-          eyeCluster.cluster.rotation.y += (turnToPlayer - eyeCluster.cluster.rotation.y) * dt * 0.4;
-          
-        } else {
-          // Mouvement erratique nerveux - SIMPLIFIÉ
-          eyeCluster.isWatching = false;
-          eyeCluster.watchIntensity = Math.max(0, eyeCluster.watchIntensity - dt * 0.7);
-          
-          eyeCluster.eyesInCluster.forEach((eye, idx) => {
-            const randomAngle = now * 0.0015 * (1 + idx * 0.2);
-            const maxWander = 0.05 * eye.size; // réduit le mouvement
-            
-            const wanderX = Math.cos(randomAngle) * maxWander * Math.sin(now * 0.002 + idx);
-            const wanderY = Math.sin(randomAngle * 1.3) * maxWander * Math.cos(now * 0.0018 + idx);
-            
-            eye.iris.position.x += (wanderX - eye.iris.position.x) * dt * 2.5;
-            eye.iris.position.y += (wanderY - eye.iris.position.y) * dt * 2.5;
-            eye.pupil.position.x = eye.iris.position.x;
-            eye.pupil.position.y = eye.iris.position.y;
-            
-            eye.highlight.position.x = -0.03 * eye.size + eye.iris.position.x * 0.4;
-            eye.highlight.position.y = 0.03 * eye.size + eye.iris.position.y * 0.4;
-            
-            eye.pupil.scale.set(1, 1, 1);
-            eye.eyeball.scale.set(1, 1, 1);
-          });
-          
-          eyeCluster.light.intensity = eyeCluster.watchIntensity * 0.3;
-          
-          // Ondulation simplifiée
-          eyeCluster.cluster.rotation.z = Math.sin(now * 0.0008 + eyeCluster.pulseOffset) * 0.08;
-        }
-        
-        // Clignement synchronisé - SIMPLIFIÉ et moins fréquent
-        eyeCluster.blinkTimer -= dt;
-        if(eyeCluster.blinkTimer <= 0) {
-          const blinkDuration = 0.12;
-          const startTime = performance.now();
-          
-          const blink = () => {
-            const elapsed = (performance.now() - startTime) / 1000;
-            const progress = elapsed / blinkDuration;
-            
-            eyeCluster.eyesInCluster.forEach(eye => {
-              if(progress < 0.5) {
-                const close = progress * 2;
-                eye.iris.scale.y = 1 - close * 0.95;
-                eye.pupil.scale.y = 1 - close * 0.95;
-                eye.highlight.scale.y = 1 - close;
-              } else if(progress < 1) {
-                const open = (progress - 0.5) * 2;
-                eye.iris.scale.y = 0.05 + open * 0.95;
-                eye.pupil.scale.y = 0.05 + open * 0.95;
-                eye.highlight.scale.y = open;
-              } else {
-                eye.iris.scale.y = 1;
-                eye.pupil.scale.y = 1;
-                eye.highlight.scale.y = 1;
-                return;
-              }
-            });
-            
-            if(progress < 1) requestAnimationFrame(blink);
-          };
-          blink();
-          
-          // Temps entre clignements augmenté
-          eyeCluster.blinkTimer = eyeCluster.isWatching ? 
-            (10 + Math.random() * 20) : 
-            (3 + Math.random() * 8);
-        }
-      }
-    });
-    
-    // Rétrécissement basé sur les clusters - OPTIMISÉ
-    if(frameCount % 5 === 0) { // calculer seulement tous les 5 frames
-      let maxWatchIntensity = 0;
-      let watchingClustersCount = 0;
-      eyes.forEach(cluster => {
-        if(cluster.isWatching) {
-          watchingClustersCount++;
-          if(cluster.watchIntensity > maxWatchIntensity) {
-            maxWatchIntensity = cluster.watchIntensity;
           }
         }
       });
-      
-      const narrowAmount = Math.min(watchingClustersCount / 8, 1) * maxWatchIntensity * 0.6;
-      corridorNarrowFactor += (narrowAmount - corridorNarrowFactor) * dt * 0.8;
-      halfW = (width/2) - 0.35 - corridorNarrowFactor;
-      
-      // Brouillard rouge intense
-      if(maxWatchIntensity > 0.4) {
-        const redIntensity = Math.floor(maxWatchIntensity * 40);
-        scene.fog.color.setHex(0x120a0d + redIntensity * 0x010000);
-      } else {
-        scene.fog.color.setHex(0x120a0d);
-      }
     }
+
+    // (Particules retirées)
 
   // ZQSD (et WASD) movement in local camera space when locked and exploring
     if(controls.isLocked && gameMode === 'explore'){
@@ -735,48 +442,55 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
       if(moveLeft)    { vx += right.x; vz += right.z; }
       if(moveRight)   { vx -= right.x; vz -= right.z; }
 
-      const mag = Math.hypot(vx, vz) || 1;
-      velocity.set((vx/mag)*speed*dt, 0, (vz/mag)*speed*dt);
+  const mag = Math.hypot(vx, vz) || 1;
+  const s = speed * (runPressed ? 1.9 : 1.0);
+  velocity.set((vx/mag)*s*dt, 0, (vz/mag)*s*dt);
 
       camera.position.x += velocity.x;
       camera.position.z += velocity.z;
 
       // Clamp within corridor
       camera.position.x = Math.max(-halfW, Math.min(halfW, camera.position.x));
-    }
-
-    // Knife bob/rotate visual
-    if(gameMode === 'explore' && knife.parent){
-      knife.rotation.y += dt * 1.0;
-      knife.position.y = knife.userData.baseY + Math.sin(now*0.003) * 0.05;
-      const glowMat = knife.userData.glowMat;
-      if(glowMat && glowMat.emissiveIntensity!=null){
-        glowMat.emissiveIntensity = 0.25 + 0.1*Math.sin(now*0.005);
+      
+      // Empêcher de traverser la porte scellée (collision arrière)
+      if(camera.position.z > sealedDoorZ - 0.3) {
+        camera.position.z = sealedDoorZ - 0.3;
+      }
+      
+      // Déclencher le combat au milieu du couloir (si ukulélé récupéré)
+      const combatTriggerZ = -(segments/2 + 2) * length;
+      if(hasUkulele && camera.position.z < combatTriggerZ && gameMode === 'explore') {
+        startFight();
       }
     }
 
-    // Knife pickup proximity (press E)
-    if(gameMode === 'explore' && !hasKnife){
-      const d = camera.position.distanceTo(knife.position);
-      if(d < 2.0){
-        setPrompt('Appuyez sur E pour saisir l\'arme');
-        if(interactPressed){
-          hasKnife = true;
-          knife.parent?.remove(knife);
-          flashMsg('Vous sentez son poids... et sa malédiction', 2200);
+    // Animation de l'ukulélé
+    if(ukulele && !hasUkulele) {
+      ukulele.rotation.y += dt * 0.8;
+      ukulele.position.y = ukulele.userData.baseY + Math.sin(now * 0.002) * 0.04;
+      
+      // Lumière pulsante
+      const glowMat = ukuleleLight.color;
+      ukuleleLight.intensity = 2.0 + 0.3 * Math.sin(now * 0.004);
+      
+      // Vérifier proximité pour ramassage
+      const d = camera.position.distanceTo(ukulele.position);
+      if(d < 2.0) {
+        setPrompt('Appuyez sur E pour prendre l\'ukulélé');
+        if(interactPressed) {
+          hasUkulele = true;
+          corridor.remove(ukulele);
+          corridor.remove(ukuleleLight);
+          flashMsg('♪ Vous avez récupéré l\'ukulélé ! ♪', 2000);
           setPrompt('');
+          interactPressed = false;
         }
-      } else if(d < 3){
-        setPrompt(''); // near but not close enough
       } else {
-        setPrompt('');
+        if(msgEl.textContent.includes('ukulélé')) setPrompt('');
       }
     }
-
-    // Trigger fight when reaching near the end and hasKnife
-    if(gameMode === 'explore' && hasKnife && camera.position.z < endZ - 6){
-      startFight();
-    }
+    
+    interactPressed = false;
 
     renderer.render(scene, camera);
   }
@@ -789,8 +503,9 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   }
   window.addEventListener('resize', onResize);
 
-  // Startup message
-  try{ flashMsg('Les ténèbres vous observent...', 2400); }catch(e){}
+  // Pas de HUD au démarrage: ne pas afficher de message initial
+  // (HUD uniquement pendant le combat)
+  try{ msgEl.hidden = true; promptEl.hidden = true; }catch(e){}
 
   // =============================
   // Settings wiring
@@ -802,7 +517,7 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
   uiXhVis?.addEventListener('change', ()=>{ document.getElementById('crosshair').style.display = uiXhVis.checked ? 'block' : 'none'; });
   uiXhColor?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-color', uiXhColor.value); });
   uiXhSize?.addEventListener('input', ()=>{ document.getElementById('crosshair').style.setProperty('--xh-size', uiXhSize.value+'px'); });
-  resetPos?.addEventListener('click', ()=>{ camera.position.set(0,1.6,0); });
+  resetPos?.addEventListener('click', ()=>{ camera.position.set(0,0.8,0); }); // Hauteur ajustée
 
   // =============================
   // Simple Undertale-like fight EN PHASES
@@ -868,6 +583,18 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
         }, duration*1000);
       }
 
+      // Projectiles en forme de pointeur (chevron ">")
+      function spawnPointers(side){
+        const count = 3 + Math.floor(Math.random()*3);
+        for(let i=0;i<count;i++){
+          const y = box.y + 12 + Math.random()*(box.h-24);
+          const dir = side>0? 1 : -1;
+          const size = 14;
+          // Ajouter w/h pour collisions approx rectangulaires; le rendu sera un triangle
+          bullets.push({ pointer:true, x: dir>0? box.x-16 : box.x+box.w+16, y, vx: 120*dir, vy: 0, size, w: size, h: size*0.7 });
+        }
+      }
+
     let last = performance.now();
     let acc = 0;
     let spawnAcc = 0;
@@ -875,17 +602,22 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
     let attackFlash = 0;
 
     const keys = new Set();
+    // Barre d'attaque Undertale (curseur qui parcourt une jauge)
+    let attackBar = { active:false, pos:0, speed:0.9, dir:1 };
     function kdn(e){ 
       keys.add(e.code);
       // Attaquer avec ESPACE pendant la phase d'attaque
       if(e.code === 'Space' && phase === 'attack' && attackReady) {
-        bossHP = Math.max(0, bossHP - 1);
+        // Calculer dégâts selon proximité du centre de la jauge
+        const q = attackBar.active ? (1 - Math.min(1, Math.abs(attackBar.pos - 0.5)/0.5)) : 0;
+        const dmg = q > 0.85 ? 2 : (q > 0.25 ? 1 : 0);
+        if(dmg>0) bossHP = Math.max(0, bossHP - dmg);
         attackFlash = 0.5;
-        attackReady = false;
+        attackReady = false; attackBar.active = false;
         if(bossHP > 0) {
           // Retour en phase d'esquive
           phase = 'dodge';
-          phaseTimer = 15;
+          phaseTimer = 12;
           bullets.length = 0;
           telegraphs.length = 0;
           spawnAcc = 0;
@@ -914,14 +646,14 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
           phaseTimer = 5; // 5 secondes pour attaquer
           bullets.length = 0;
           telegraphs.length = 0;
-          attackReady = true;
+          attackReady = true; attackBar.active = true; attackBar.pos = 0; attackBar.dir = 1;
         }
       } else if(phase === 'attack') {
         if(phaseTimer <= 0 && attackReady) {
           // Rate l'attaque, retour en dodge
           phase = 'dodge';
           phaseTimer = 15;
-          attackReady = false;
+          attackReady = false; attackBar.active = false;
           spawnAcc = 0;
           phaseAcc = 0;
         }
@@ -955,6 +687,7 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
             const x = box.x + 12 + Math.random()*(box.w-24);
             telegraphBeam(x, 0.5+Math.random()*0.4);
           }
+          if(Math.random()<0.06){ spawnPointers(Math.random()<0.5?1:-1); }
         }
       }
 
@@ -973,6 +706,13 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
           if(b.life!=null){ b.life -= dt; if(b.life<=0){ bullets.splice(i,1); continue; } }
           if(b.x < box.x-20 || b.x > box.x+box.w+20 || b.y < box.y-20 || b.y > box.y+box.h+20) bullets.splice(i,1);
         }
+      }
+
+      // Met à jour la barre d'attaque (curseur) pendant la phase d'attaque
+      if(phase === 'attack' && attackBar.active){
+        attackBar.pos += attackBar.speed * dt * attackBar.dir;
+        if(attackBar.pos >= 1){ attackBar.pos = 1; attackBar.dir = -1; }
+        if(attackBar.pos <= 0){ attackBar.pos = 0; attackBar.dir = 1; }
       }
 
       // Collisions (seulement en phase dodge)
@@ -1023,18 +763,80 @@ import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/
         ctx.lineTo(W/2, H/2+20);
         ctx.stroke();
       }
+
+      // Barre d'attaque Undertale (affichée en phase attaque)
+      if(phase === 'attack'){
+        const barW = box.w * 0.7;
+        const barH = 12;
+        const barX = box.x + (box.w - barW)/2;
+        const barY = box.y + box.h - 28;
+        // Fond de la jauge
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.strokeStyle = '#ff7777';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barW, barH);
+        // Zone parfaite au centre
+        const perfectW = Math.max(6, barW*0.06);
+        const perfectX = barX + barW/2 - perfectW/2;
+        ctx.fillStyle = 'rgba(255,50,50,0.35)';
+        ctx.fillRect(perfectX, barY, perfectW, barH);
+        // Graduations légères
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        for(let k=0;k<=10;k++){
+          const gx = barX + (k/10)*barW;
+          ctx.beginPath();
+          ctx.moveTo(gx, barY);
+          ctx.lineTo(gx, barY+barH);
+          ctx.stroke();
+        }
+        // Curseur mobile
+        if(attackBar.active){
+          const cx = barX + attackBar.pos * barW;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, barY-6);
+          ctx.lineTo(cx, barY+barH+6);
+          ctx.stroke();
+        }
+      }
       
       // bullets
       ctx.fillStyle = '#ffffff';
-      for(const b of bullets){ ctx.fillRect(b.x-b.w/2, b.y-b.h/2, b.w, b.h); }
+      for(const b of bullets){
+        if(b.pointer){
+          // Dessiner un chevron (triangle) pointant vers la direction de vx
+          const s = b.size || Math.max(b.w||8, b.h||6);
+          ctx.beginPath();
+          if((b.vx||0) >= 0){
+            // vers la droite
+            ctx.moveTo(b.x - s*0.6, b.y - s*0.5);
+            ctx.lineTo(b.x - s*0.6, b.y + s*0.5);
+            ctx.lineTo(b.x + s*0.6, b.y);
+          } else {
+            // vers la gauche
+            ctx.moveTo(b.x + s*0.6, b.y - s*0.5);
+            ctx.lineTo(b.x + s*0.6, b.y + s*0.5);
+            ctx.lineTo(b.x - s*0.6, b.y);
+          }
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.fillRect(b.x-b.w/2, b.y-b.h/2, b.w, b.h);
+        }
+      }
       
       // telegraphs (warning lines)
       ctx.strokeStyle = '#ffcc66'; ctx.lineWidth = 1;
       telegraphs.forEach(t=>{ ctx.beginPath(); ctx.moveTo(t.x, box.y); ctx.lineTo(t.x, box.y+box.h); ctx.stroke(); });
       
-      // HUD (timer + hearts + barre de vie boss)
-      const timerText = phase === 'dodge' ? `ESQUIVE: ${phaseTimer.toFixed(1)}s` : `ATTAQUE: ${phaseTimer.toFixed(1)}s`;
-      document.getElementById('fightTimer').textContent = timerText;
+  // HUD combat (phase + timer + hearts + barre de vie boss)
+  const timerEl = document.getElementById('fightTimer');
+  const phaseEl = document.getElementById('fightPhase');
+  if(timerEl) timerEl.textContent = `${phaseTimer.toFixed(1)}s`;
+  if(phaseEl) phaseEl.textContent = (phase === 'dodge' ? 'ESQUIVE' : 'ATTAQUE');
       const hearts = '❤'.repeat(hp) + '♡'.repeat(5-hp);
       document.getElementById('fightHearts').innerHTML = hearts.split('').map(ch=>`<span class="heart">${ch}</span>`).join('');
       

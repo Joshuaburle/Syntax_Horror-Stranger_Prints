@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Automatique - Jeu Horror</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #000; 
+            color: #0f0; 
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test { 
+            margin: 10px 0; 
+            padding: 8px;
+            border-left: 3px solid #333;
+        }
+        .pass { border-color: #0f0; }
+        .fail { border-color: #f00; color: #f00; }
+        .info { color: #0af; }
+        h1 { color: #f90; }
+        #iframe-container { 
+            display: none; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Tests Automatiques du Jeu</h1>
+    <div id="results"></div>
+    <div id="iframe-container">
+        <iframe id="game-frame" src="index.html" width="800" height="600"></iframe>
+    </div>
+
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.textContent = `${type === 'pass' ? '✓' : type === 'fail' ? '✗' : '→'} ${msg}`;
+            results.appendChild(div);
+        }
+
+        async function runTests() {
+            log('Démarrage des tests...', 'info');
+            
+            // Test 1: Chargement du script
+            log('Test 1: Vérification du fichier script.js');
+            try {
+                const scriptResp = await fetch('script.js');
+                const scriptText = await scriptResp.text();
+                
+                if (scriptText.includes('makeUkulele')) {
+                    log('✓ Fonction makeUkulele trouvée', 'pass');
+                } else {
+                    log('✗ Fonction makeUkulele manquante', 'fail');
+                }
+                
+                if (scriptText.includes('flatShading: true')) {
+                    log('✓ Style Risk of Rain 2 (flatShading) appliqué', 'pass');
+                } else {
+                    log('✗ Style RoR2 manquant', 'fail');
+                }
+                
+                if (!scriptText.includes('dustCount')) {
+                    log('✓ Particules de poussière retirées', 'pass');
+                } else {
+                    log('✗ Particules toujours présentes', 'fail');
+                }
+                
+                if (scriptText.includes('sealedDoorZ - 0.3')) {
+                    log('✓ Collision porte scellée implémentée', 'pass');
+                } else {
+                    log('✗ Collision porte scellée manquante', 'fail');
+                }
+                
+                if (scriptText.includes('startFight()')) {
+                    log('✓ Déclencheur de combat présent', 'pass');
+                } else {
+                    log('✗ Combat non déclenché', 'fail');
+                }
+                
+                if (scriptText.includes('backLeftWall') && scriptText.includes('backRightWall')) {
+                    log('✓ Murs latéraux derrière spawn ajoutés', 'pass');
+                } else {
+                    log('✗ Murs latéraux manquants', 'fail');
+                }
+                
+                if (scriptText.includes('backCeiling')) {
+                    log('✓ Plafond derrière spawn ajouté', 'pass');
+                } else {
+                    log('✗ Plafond derrière spawn manquant', 'fail');
+                }
+                
+                // Vérifier que les textures utilisent corridorMat
+                const backFloorMatch = scriptText.match(/backFloor.*?corridorMat/s);
+                if (backFloorMatch) {
+                    log('✓ Sol derrière spawn utilise texture unifiée', 'pass');
+                } else {
+                    log('✗ Sol derrière spawn n\'utilise pas corridorMat', 'fail');
+                }
+                
+            } catch (err) {
+                log(`✗ Erreur lors du chargement: ${err.message}`, 'fail');
+            }
+            
+            // Test 2: HTML
+            log('\nTest 2: Vérification du fichier index.html');
+            try {
+                const htmlResp = await fetch('index.html');
+                const htmlText = await htmlResp.text();
+                
+                if (htmlText.includes('fightWrap')) {
+                    log('✓ Interface de combat présente', 'pass');
+                } else {
+                    log('✗ Interface de combat manquante', 'fail');
+                }
+            } catch (err) {
+                log(`✗ Erreur HTML: ${err.message}`, 'fail');
+            }
+            
+            // Test 3: CSS
+            log('\nTest 3: Vérification du fichier style.css');
+            try {
+                const cssResp = await fetch('style.css');
+                const cssText = await cssResp.text();
+                
+                if (cssText.includes('.fight-wrap')) {
+                    log('✓ Styles de combat présents', 'pass');
+                } else {
+                    log('✗ Styles de combat manquants', 'fail');
+                }
+            } catch (err) {
+                log(`✗ Erreur CSS: ${err.message}`, 'fail');
+            }
+            
+            log('\n✅ Tests terminés!', 'pass');
+            log('👉 Ouvrez http://localhost:8000/game/index.html dans votre navigateur', 'info');
+            log('👉 Testez: collision porte, ramassage ukulélé, déclenchement combat', 'info');
+        }
+
+        runTests();
+    </script>
+</body>
+</html>
