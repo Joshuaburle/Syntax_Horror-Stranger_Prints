@@ -11,11 +11,23 @@ import socket
 import http.server
 import socketserver
 import mimetypes
+
 try:
     from PIL import Image, ImageTk
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
+
+# === CONSTANTES ===
+TERMINAL_BG = 'black'
+TERMINAL_FG = '#00ff00'
+TERMINAL_ACTIVE_BG = '#003300'
+TERMINAL_HIGHLIGHT_BG = '#004400'
+TERMINAL_FONT = ('Courier', 11)
+TERMINAL_FONT_LARGE = ('Courier', 12)
+IMAGE_SIZE_RATIO = (0.20, 0.30)  # (largeur%, hauteur%)
+IMAGE_SIZE_BOUNDS = (80, 350)    # (min, max)
+SERVER_PORT = 8000
 
 def on_closing():
     # Empêche la fermeture et affiche un message dans la zone de texte
@@ -29,101 +41,53 @@ def on_closing():
     root.bell()  # Fait un son pour l'effet
 
 def _open_html_endcard():
-    """Ouvre game/index.html via un petit serveur HTTP local si nécessaire.
-    - Démarre un serveur sur http://localhost:8000 si rien n'écoute
-    - Sert le dossier 'game' avec le bon MIME .wasm (Unity WebGL)
-    - Ouvre l'URL dans le navigateur (wslview/xdg-open/webbrowser)
-    - Ferme la fenêtre Tk après ouverture
-    """
-    try:
-        def _port_in_use(port: int) -> bool:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.25)
-                try:
-                    return s.connect_ex(("127.0.0.1", port)) == 0
-                except Exception:
-                    return False
+    """Ouvre game/index.html via un serveur HTTP local (Unity WebGL)."""
+    def _port_in_use(port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.25)
+            return s.connect_ex(("127.0.0.1", port)) == 0
 
-        # Préparer serveur HTTP local pour Unity WebGL
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        game_dir = os.path.join(script_dir, 'game')
-        index_file = os.path.join(game_dir, 'index.html')
-        if not os.path.exists(index_file):
-            print("Erreur: 'game/index.html' introuvable. Assurez-vous qu'il se trouve dans le dossier 'game'.")
-            return
-
-        port = 8000
-
-        # Enrichir MIME pour .wasm
+    def _start_server(game_dir):
         try:
-            mimetypes.add_type('application/wasm', '.wasm')
-        except Exception:
-            pass
+            from functools import partial as _partial
+            Handler = _partial(http.server.SimpleHTTPRequestHandler, directory=game_dir)
+        except TypeError:
+            cwd = os.getcwd()
+            os.chdir(game_dir)
+            Handler = http.server.SimpleHTTPRequestHandler
+        
+        class ReusableTCPServer(socketserver.TCPServer):
+            allow_reuse_address = True
+        
+        httpd = ReusableTCPServer(("", SERVER_PORT), Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
-        # Démarrer serveur si rien n'écoute
-        url = f"http://localhost:{port}/index.html"
-
-        def _start_server():
-            try:
-                # Handler avec directory si supporté (Python 3.7+)
-                try:
-                    from functools import partial as _partial
-                    Handler = _partial(http.server.SimpleHTTPRequestHandler, directory=game_dir)
-                    need_chdir = False
-                except TypeError:
-                    Handler = http.server.SimpleHTTPRequestHandler
-                    need_chdir = True
-
-                if need_chdir:
-                    cwd = os.getcwd()
-                    os.chdir(game_dir)
-                else:
-                    cwd = None
-
-                # Autoriser la réutilisation d'adresse
-                class ReusableTCPServer(socketserver.TCPServer):
-                    allow_reuse_address = True
-
-                httpd = ReusableTCPServer(("", port), Handler)
-
-                def _serve():
-                    try:
-                        httpd.serve_forever()
-                    finally:
-                        try:
-                            httpd.server_close()
-                        except Exception:
-                            pass
-                        if need_chdir and cwd:
-                            try:
-                                os.chdir(cwd)
-                            except Exception:
-                                pass
-
-                t = threading.Thread(target=_serve, daemon=True)
-                t.start()
-            except OSError as e:
-                # Si port déjà pris, on suppose qu'un serveur tourne déjà
-                print(f"Info: serveur HTTP non démarré (peut-être déjà en cours): {e}")
-            except Exception as e:
-                print(f"Erreur lors du démarrage du serveur HTTP local: {e}")
-
-        if not _port_in_use(port):
-            _start_server()
-
-        # Ouvrir dans le navigateur
-        if shutil.which('wslview'):
-            subprocess.Popen(['wslview', url])
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    game_dir = os.path.join(script_dir, 'game')
+    
+    if not os.path.exists(os.path.join(game_dir, 'index.html')):
+        print("Erreur: 'game/index.html' introuvable.")
+        return
+    
+    mimetypes.add_type('application/wasm', '.wasm')
+    
+    if not _port_in_use(SERVER_PORT):
+        try:
+            _start_server(game_dir)
+        except Exception as e:
+            print(f"Erreur serveur HTTP: {e}")
+    
+    url = f"http://localhost:{SERVER_PORT}/index.html"
+    
+    # Ouvrir selon l'environnement
+    for cmd in ['wslview', 'xdg-open']:
+        if shutil.which(cmd):
+            subprocess.Popen([cmd, url])
             root.after(200, root.destroy)
             return
-        if shutil.which('xdg-open'):
-            subprocess.Popen(['xdg-open', url])
-            root.after(200, root.destroy)
-            return
-        webbrowser.open(url, new=2)
-        root.after(200, root.destroy)
-    except Exception as e:
-        print(f"Erreur lors de l'ouverture de 'game/index.html': {e}")
+    
+    webbrowser.open(url, new=2)
+    root.after(200, root.destroy)
 
 STORY = {
     "start": {
@@ -135,7 +99,8 @@ Ensemble, on va voir ce qu'est une adresse, comment lire et modifier une valeur 
 Prends ton temps, réponds à ton rythme : je t'explique tout pas à pas.
 
 Appuie sur ENTER pour commencer.""",
-        "choices": [("Commencer", "enter_name")]
+        "choices": [("Commencer", "enter_name")],
+        "image": "normal.png"
     },
 
     "enter_name": {
@@ -143,7 +108,9 @@ Appuie sur ENTER pour commencer.""",
 Comment t'appelles-tu ?
 
 Entrez votre nom :""",
-        "choices": [("Valider", "first_question")]
+        "choices": [("Valider", "first_question")],
+        "image": "normal.png",
+        "input_key": "name"
     },
 
     "first_question": {
@@ -152,8 +119,9 @@ Une variable en C a une adresse en mémoire. Pour obtenir cette adresse, on util
 Selon toi que represente &n ?""",
         "choices": [
             ("L'adresse de la variable n", "second_question"),
-            ("La valeur de la variable n", "cas_erreur")
+            ("La valeur de la variable n", "cas_erreur_q1")
         ]
+        ,"image": "normal.png"
     },
 
     "second_question": {
@@ -161,38 +129,49 @@ Selon toi que represente &n ?""",
 Que fait l'expression *p si p est un pointeur vers un entier ?""",
         "choices": [
             ("Accède à la valeur entière pointée par p", "third_question"),
-            ("Accède à l'adresse de p", "cas_erreur")
+            ("Accède à l'adresse de p", "cas_erreur_q2")
         ]
+        ,"image": "normal.png"
     },
 
     "third_question": {
         "text": """Q3 — Comprendre l'envers.
 Que fait l'expression &*p si p est un pointeur valide ?""",
         "choices": [
-            ("Retourne la valeur stockée à l'adresse de p", "jean_michel_enerve"),
+            ("Retourne la valeur stockée à l'adresse de p", "cas_erreur_q3"),
             ("Retourne l'adresse pointée par p", "strange_question")
         ]
+        ,"image": "normal.png"
     },
-#PLACEHOLDER VISAGE MECONTENT
-    "cas_erreur": {
+    "cas_erreur_q1": {
         "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
-        "choices": [("Recommencer", "first_question")]
+        "choices": [("Recommencer", "first_question")],
+        "image": "mecontent.png"
     },
-
-#PLACEHOLDER VISAGE EN COLERE
+    "cas_erreur_q2": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "second_question")],
+        "image": "mecontent.png"
+    },
+    "cas_erreur_q3": {
+        "text": """Oups ! Non, il semble que tu te sois trompé. Reprenons ensemble pour bien comprendre.""",
+        "choices": [("Recommencer", "third_question")],
+        "image": "mecontent.png"
+    },
     "jean_michel_enerve": {
         "text": """Jean-Michel Pointeur (v1.1)
 Ça suffit les erreurs ! On va tout reprendre depuis le début.
 Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettre. Pas de place pour l'erreur cette fois-ci !""",
-        "choices": [("Recommencer", "third_question")]
+        "choices": [("Recommencer", "third_question")],
+        "image": "colere.png"
     },
-#PLACEHOLDER VISAGE NORMAL
     "strange_question": {
         "text": """Si tu ne pouvais sauver qu'une personne, tu choisirais de sauver :""",
         "choices": [
             ("Un(e) ami(e)", "end"),
             ("Un(e) membre de ta famille", "end")
         ]
+        ,"image": "big_mouth.png"
     },
 
     "end": {
@@ -201,8 +180,8 @@ Cette fois, tu vas écouter attentivement et suivre mes instructions à la lettr
             ("Me rejoindre?", "end"),
             ("Ou que je vienne te chercher :)?", "end")
         ]
-#PLACEHOLDER VISAGE HORRIBLE (SCREAMEUR)
-        }
+        ,"image": "screamer.png"
+    }
     }
 
 root = tk.Tk()
@@ -221,63 +200,114 @@ root.grid_rowconfigure(1, weight=0)     # ligne boutons
 image_frame = tk.Frame(root, bg='black')
 image_frame.grid(row=0, column=0, sticky='nw', padx=10, pady=10)
 
-# Variables globales pour gestion du redimensionnement
-original_image = None
+
+# Gestion image dynamique et cache
+image_cache = {}
 image_label = None
+_current_image_name = None
 _last_img_size = None
+user_name = ""
+has_previous_errors = False  # Pour traquer les erreurs aux questions 1 et 2
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+def _load_image(name: str):
+    """Charge une image depuis le dossier images/ ou crée une image de secours si
+    le fichier est introuvable. Retourne une PIL.Image."""
+    if name in image_cache:
+        return image_cache[name]
+    if not HAS_PIL:
+        return None
+    path = os.path.join(script_dir, "images", name)
+    try:
+        img = Image.open(path).convert("RGBA")
+        image_cache[name] = img
+        return img
+    except Exception:
+        # Crée une image de remplacement simple (fond + texte)
+        try:
+            w = 200
+            h = 200
+            if "colere" in name or "enerve" in name:
+                color = (180, 30, 30, 255)
+            elif "horrible" in name or "screameur" in name:
+                color = (40, 10, 40, 255)
+            elif "normal" in name:
+                color = (30, 90, 30, 255)
+            else:
+                color = (60, 60, 60, 255)
+            img = Image.new("RGBA", (w, h), color)
+            try:
+                from PIL import ImageDraw, ImageFont
+                draw = ImageDraw.Draw(img)
+                label = os.path.splitext(name)[0].replace('_', ' ')
+                try:
+                    font = ImageFont.load_default()
+                except Exception:
+                    font = None
+                tw, th = draw.textsize(label, font=font)
+                draw.text(((w - tw) / 2, (h - th) / 2), label, fill=(255,255,255,255), font=font)
+            except Exception:
+                pass
+            image_cache[name] = img
+            return img
+        except Exception:
+            return None
 
 def _compute_target_size():
-    """Calcule une taille carrée proportionnelle à la fenêtre, bornée min/max."""
-    ww = max(1, root.winfo_width())
-    wh = max(1, root.winfo_height())
-    # 13% de la largeur et 18% de la hauteur, puis on prend le plus petit
-    target = int(min(ww * 0.13, wh * 0.18))
-    # Bornes de sécurité
-    return max(50, min(200, target))
+    """Calcule une taille proportionnelle à la fenêtre, bornée min/max."""
+    ww, wh = max(1, root.winfo_width()), max(1, root.winfo_height())
+    target = int(min(ww * IMAGE_SIZE_RATIO[0], wh * IMAGE_SIZE_RATIO[1]))
+    return max(IMAGE_SIZE_BOUNDS[0], min(IMAGE_SIZE_BOUNDS[1], target))
 
 def _resize_image(event=None):
+    """Redimensionne l'image en gardant le ratio d'aspect."""
     global _last_img_size
-    if not (HAS_PIL and original_image and image_label):
+    if not (HAS_PIL and image_label):
         return
+    
+    target_height = _compute_target_size()
+    if target_height == _last_img_size:
+        return
+    
+    # Récupérer l'image depuis le cache
+    img = (_current_image_name and (image_cache.get(_current_image_name) or _load_image(_current_image_name))) \
+          or image_cache.get('normal.png') or _load_image('normal.png')
+    if not img:
+        return
+    
+    # Redimensionner en gardant le ratio
+    aspect_ratio = img.size[0] / img.size[1]
+    new_size = (int(target_height * aspect_ratio), target_height)
+    
     try:
-        new_size = _compute_target_size()
-        if new_size == _last_img_size:
-            return  # évite MAJ inutiles
-
-        # Compatibilité Pillow pour le resampling
-        try:
-            resample_algo = Image.Resampling.LANCZOS
-        except AttributeError:
-            resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
-
-        resized = original_image.resize((new_size, new_size), resample=resample_algo)
+        resample = Image.Resampling.LANCZOS
+    except AttributeError:
+        resample = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
+    
+    try:
+        resized = img.resize(new_size, resample=resample)
         photo = ImageTk.PhotoImage(resized)
         image_label.configure(image=photo)
-        image_label.image = photo  # garder référence
-        _last_img_size = new_size
-        # S'assure que le frame reste au-dessus
+        image_label.image = photo
+        _last_img_size = target_height
         image_frame.lift()
     except Exception as e:
-        print(f"Erreur lors du redimensionnement: {e}")
+        print(f"Erreur redimensionnement: {e}")
 
 # Chargement et affichage de l'image
 if HAS_PIL:
     try:
-        # Chemin absolu de l'image (dans le dossier images à côté du script)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "images", "corner_image.png")
-
-        # Charger l'image originale
-        original_image = Image.open(image_path)
-
-        # Création initiale avec une taille par défaut (sera ajustée ensuite)
-        try:
-            resample_algo = Image.Resampling.LANCZOS
-        except AttributeError:
-            resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
-        initial = original_image.resize((100, 100), resample=resample_algo)
-        photo = ImageTk.PhotoImage(initial)
-
+        _load_image('normal.png')
+        init_img = image_cache.get('normal.png')
+        if init_img is not None:
+            try:
+                resample_algo = Image.Resampling.LANCZOS
+            except AttributeError:
+                resample_algo = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 0))
+            initial = init_img.resize((100, 100), resample=resample_algo)
+            photo = ImageTk.PhotoImage(initial)
+        else:
+            photo = None
         image_label = tk.Label(
             image_frame,
             image=photo,
@@ -286,14 +316,11 @@ if HAS_PIL:
         )
         image_label.image = photo
         image_label.pack()
-
-        # Lier l'événement de redimensionnement et forcer une première adaptation
         root.bind('<Configure>', _resize_image)
         root.after(0, _resize_image)
-
     except Exception as e:
         print(f"Erreur de chargement de l'image: {e}")
-        print(f"Chemin testé: {locals().get('image_path', 'inconnu')}")
+        print(f"Chemin testé: {locals().get('image_path', 'inconnu')}" )
         placeholder = tk.Label(
             image_frame,
             text="[×]",
@@ -308,16 +335,9 @@ else:
 # Zone de texte avec scrollbar (style terminal)
 text_scroll = tk.Scrollbar(root, orient='vertical')
 text_area = tk.Text(
-    root,
-    wrap='word',
-    padx=20,
-    pady=20,
-    bg='black',
-    fg='#00ff00',
-    insertbackground='#00ff00',
-    font=('Courier', 12),
-    borderwidth=0,
-    highlightthickness=0,
+    root, wrap='word', padx=20, pady=20,
+    bg=TERMINAL_BG, fg=TERMINAL_FG, insertbackground=TERMINAL_FG,
+    font=TERMINAL_FONT_LARGE, borderwidth=0, highlightthickness=0
 )
 text_area.configure(yscrollcommand=text_scroll.set)
 text_scroll.configure(command=text_area.yview)
@@ -325,7 +345,7 @@ text_area.grid(row=0, column=1, sticky='nsew')
 text_scroll.grid(row=0, column=2, sticky='ns')
 
 # Frame pour les boutons (en bas, responsive)
-btn_frame = tk.Frame(root, bg='black')
+btn_frame = tk.Frame(root, bg=TERMINAL_BG)
 btn_frame.grid(row=1, column=1, columnspan=2, sticky='ew', pady=(6, 12), padx=(20, 20))
 btn_frame.grid_columnconfigure(0, weight=1)
 
@@ -333,6 +353,17 @@ btn_frame.grid_columnconfigure(0, weight=1)
 button_list = []
 focus_idx = 0
 _end_html_opened = False
+
+def _create_button(parent, text, command):
+    """Crée un bouton avec le style terminal unifié."""
+    return tk.Button(
+        parent, text=text, command=command,
+        bg=TERMINAL_BG, fg=TERMINAL_FG,
+        activebackground=TERMINAL_ACTIVE_BG, activeforeground=TERMINAL_FG,
+        font=TERMINAL_FONT, relief='flat', borderwidth=0, cursor='hand2',
+        highlightthickness=1, highlightbackground=TERMINAL_HIGHLIGHT_BG,
+        highlightcolor=TERMINAL_FG, takefocus=True, padx=10, pady=6
+    )
 
 def focus_button(idx: int):
     global focus_idx
@@ -366,84 +397,87 @@ root.bind('<KP_Enter>', on_key_enter)
 root.bind('<space>', on_key_enter)
 
 def show(node_id):
-    global button_list
-    global _end_html_opened
+    global button_list, _end_html_opened, _current_image_name, _last_img_size, user_name, has_previous_errors
+    
+    # Traquer les erreurs aux questions 1 et 2
+    if node_id in ["cas_erreur_q1", "cas_erreur_q2"]:
+        has_previous_errors = True
+    
+    # Rediriger vers jean_michel_enerve si erreur à Q3 après des erreurs précédentes
+    if node_id == "cas_erreur_q3" and has_previous_errors:
+        node_id = "jean_michel_enerve"
+    
     node = STORY[node_id]
+
+    # Gérer l'image associée au nœud
+    _current_image_name = node.get("image", "normal.png")
+    if HAS_PIL:
+        _load_image(_current_image_name)
+    _last_img_size = None  # Force le rechargement
+    _resize_image()
 
     # Mettre à jour le texte dans la zone scrollable
     text_area.configure(state='normal')
     text_area.delete('1.0', 'end')
-    text_area.insert('1.0', node["text"])
+    try:
+        formatted = node["text"].format(name=user_name)
+    except Exception:
+        formatted = node["text"]
+    text_area.insert('1.0', formatted)
     text_area.configure(state='disabled')
-    text_area.yview_moveto(0)  # remonter en haut
+    text_area.yview_moveto(0)
 
-    # Recréer les boutons
+    # Recréer les widgets dans btn_frame
     for w in btn_frame.winfo_children():
         w.destroy()
     button_list = []
 
+    # Si le nœud demande une entrée (ex: prénom), on ajoute un Entry
+    input_key = node.get("input_key")
+    entry_var, entry_widget = None, None
+    if input_key:
+        entry_var = tk.StringVar()
+        entry_widget = tk.Entry(
+            btn_frame, textvariable=entry_var,
+            bg=TERMINAL_BG, fg=TERMINAL_FG, insertbackground=TERMINAL_FG,
+            font=TERMINAL_FONT, relief='flat', borderwidth=1, width=30
+        )
+        entry_widget.grid(row=0, column=0, columnspan=4, padx=6, pady=(4, 6), sticky='w')
+
     if node["choices"]:
         for idx, (label, next_id) in enumerate(node["choices"]):
-            # Commande: si on est sur le noeud 'end', ouvrir le HTML après la réponse (clic)
-            if node_id == 'end':
+            # Déterminer la commande selon le contexte
+            if input_key:
+                def _on_validate(nid=next_id, var=entry_var):
+                    global user_name
+                    val = (var.get() if var else "").strip()
+                    if not val:
+                        root.bell()
+                        return
+                    user_name = val
+                    show(nid)
+                cmd = _on_validate
+            elif node_id == 'end':
                 def _cmd(nid=next_id):
                     global _end_html_opened
                     if not _end_html_opened:
                         _end_html_opened = True
-                        # Lancer l'ouverture juste après le clic
                         root.after(50, _open_html_endcard)
                     show(nid)
                 cmd = _cmd
             else:
                 cmd = partial(show, next_id)
-            btn = tk.Button(
-                btn_frame,
-                text=f"> {label}",
-                command=cmd,
-                bg='black',
-                fg='#00ff00',
-                activebackground='#003300',
-                activeforeground='#00ff00',
-                font=('Courier', 11),
-                relief='flat',
-                borderwidth=0,
-                cursor='hand2',
-                highlightthickness=1,
-                highlightbackground='#004400',
-                highlightcolor='#00ff00',
-                takefocus=True,
-                padx=10,
-                pady=6,
-            )
-            btn.grid(row=0, column=idx, padx=6)
+            
+            btn = _create_button(btn_frame, f"> {label}", cmd)
+            btn.grid(row=(1 if input_key else 0), column=idx, padx=6)
             button_list.append(btn)
-        # Focus sur le premier bouton
-        root.after(0, lambda: focus_button(0))
+        
+        root.after(0, entry_widget.focus_set if entry_widget else lambda: focus_button(0))
     else:
-        btn = tk.Button(
-            btn_frame,
-            text="> Quitter",
-            command=root.destroy,
-            bg='black',
-            fg='#00ff00',
-            activebackground='#003300',
-            activeforeground='#00ff00',
-            font=('Courier', 11),
-            relief='flat',
-            borderwidth=0,
-            cursor='hand2',
-            highlightthickness=1,
-            highlightbackground='#004400',
-            highlightcolor='#00ff00',
-            takefocus=True,
-            padx=10,
-            pady=6,
-        )
+        btn = _create_button(btn_frame, "> Quitter", root.destroy)
         btn.grid(row=0, column=0, padx=6)
         button_list = [btn]
         root.after(0, lambda: focus_button(0))
-
-    # L'ouverture HTML est désormais déclenchée après le clic sur une option du noeud 'end'.
 
 # Démarrer avec la première scène
 show("start")
