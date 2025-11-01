@@ -40,6 +40,53 @@ def on_closing():
         pass
     root.bell()  # Fait un son pour l'effet
 
+def _show_screamer_overlay():
+    """Affiche l'image screamer en overlay plein écran pendant 2s, puis ouvre l'endcard."""
+    if not HAS_PIL:
+        _open_html_endcard()
+        return
+
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        img_path = os.path.join(script_dir, 'images', 'screamer_terminal.png')
+        if not os.path.exists(img_path):
+            _open_html_endcard()
+            return
+
+        # Fenêtre overlay au-dessus de tout, bordures masquées
+        overlay = tk.Toplevel(root)
+        overlay.attributes('-topmost', True)
+        overlay.overrideredirect(True)
+        overlay.configure(bg='black')
+
+        sw = overlay.winfo_screenwidth()
+        sh = overlay.winfo_screenheight()
+        overlay.geometry(f"{sw}x{sh}+0+0")
+
+        # Charger et adapter l'image (80% hauteur écran)
+        img = Image.open(img_path)
+        target_h = int(sh * 0.8)
+        ratio = img.size[0] / img.size[1]
+        target_w = int(target_h * ratio)
+        img = img.resize((target_w, target_h), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+
+        lbl = tk.Label(overlay, image=photo, bg='black')
+        lbl.image = photo  # empêcher le GC
+        lbl.place(relx=0.5, rely=0.5, anchor='center')
+
+        def _close_then_open():
+            try:
+                overlay.destroy()
+            except Exception:
+                pass
+            _open_html_endcard()
+
+        overlay.after(2000, _close_then_open)
+    except Exception as e:
+        print(f"Erreur screamer overlay: {e}")
+        _open_html_endcard()
+
 def _open_html_endcard():
     """Ouvre game/index.html via un serveur HTTP local (Unity WebGL)."""
     def _port_in_use(port):
@@ -462,7 +509,7 @@ def show(node_id):
                     global _end_html_opened
                     if not _end_html_opened:
                         _end_html_opened = True
-                        root.after(50, _open_html_endcard)
+                        root.after(50, _show_screamer_overlay)
                     show(nid)
                 cmd = _cmd
             else:
