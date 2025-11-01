@@ -351,10 +351,11 @@ function animate() {
                 }
             } else hidePrompt();
         }
-        if (gameState.hasKnife && camera.position.z < -CONFIG.corridor.length + 6 && !gameState.combatActive) {
-            gameState.combatActive = true;
-            combat.start();
-        }
+        // COMBAT DÉSACTIVÉ POUR TEST DU COULOIR
+        // if (gameState.hasKnife && camera.position.z < -CONFIG.corridor.length + 6 && !gameState.combatActive) {
+        //     gameState.combatActive = true;
+        //     combat.start();
+        // }
     }
     renderer.render(scene, camera);
 }
